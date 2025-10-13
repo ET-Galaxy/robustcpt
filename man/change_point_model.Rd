@@ -4,25 +4,21 @@
 \alias{change_point_model}
 \title{Generate samples from a change point model}
 \usage{
-change_point_model(
-  n,
-  mechanism = contaminated_sample_t,
-  epsilon = 0,
-  cpt = NA,
-  kappa = 1
-)
+change_point_model(n, mechanism = contaminated_sample_t, cpt = NA, kappa = 1)
 }
 \arguments{
 \item{n}{The number of samples to generate. A positive integer.}
 
-\item{epsilon}{Contamination level for the Normal(0,25) distribution. A number in (0,1)}
+\item{mechanism}{A function for the sample generating mechanism with two inputs, n and epsilon.
+Defaults to \code{contaminated_sample_t}.}
 
-\item{df}{The degrees of freedom of the t-distribution. A positive number, defaults to 3.}
+\item{cpt}{Location of changepoint. A positive integer less than n or \code{NA}, which
+means no change point. Defaults to NA}
 
-\item{mu}{Mean of the inlier distribution.}
+\item{kappa}{Change in mean at the change point.}
 }
 \value{
-Samples from a t-distribution contaminated with normal
+Samples from a t-distribution contaminated with normal distributed data.
 }
 \description{
 Generate samples from a change point model with user-specified

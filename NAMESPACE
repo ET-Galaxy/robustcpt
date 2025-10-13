@@ -3,3 +3,4 @@
 export(change_point_model)
 export(contaminated_sample_t)
 export(rume)
+export(rumedian)

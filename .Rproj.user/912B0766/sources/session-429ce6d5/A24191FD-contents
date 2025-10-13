@@ -106,7 +106,7 @@ for (t in 100:n){
     diff_rume<-abs(rume(online_data[(t-s+1):t], epsilon=0.1)-rume(online_data[1:s], epsilon=0.1))
     zeta<-2*sigma*C2*max(vareps^(1-1/v), sqrt(1/s*log(1/delta_t)))
     if (diff>zeta){
-      return(list(s,t))
+      return(c(s,t))
     }
   }
 }

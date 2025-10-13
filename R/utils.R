@@ -81,7 +81,7 @@ contaminated_sample_t<-function(n,df=3,epsilon=0,mu=0){
 #' @param n The number of samples to generate. A positive integer.
 #' @param mechanism A function for the sample generating mechanism with two inputs, n and epsilon.
 #' Defaults to \code{contaminated_sample_t}.
-#' @param cpt Location of changepoint. A positive integer less than n or \code{NA}, which
+#' @param cpt Location of change point. A positive integer less than n or \code{NA}, which
 #' means no change point. Defaults to NA
 #' @param kappa Change in mean at the change point.
 #' @returns Samples from a t-distribution contaminated with normal distributed data.
@@ -90,13 +90,13 @@ contaminated_sample_t<-function(n,df=3,epsilon=0,mu=0){
 change_point_model<-function(n, mechanism=contaminated_sample_t,cpt=NA,kappa=1){
   if (is.na(cpt)){
     # No change point: generate all n points using mechanism
-    final_sample<-mechanism(n,epsilon=epsilon)
+    final_sample<-mechanism(n=n)
   } else {
     # Generate first segment (before change point)
-    final_sample<-mechanism(cpt,epsilon=epsilon)
+    final_sample<-mechanism(n=cpt)
 
     # Generate second segment (after change point) with shift mu = kappa
-    final_sample[(cpt+1):n]<-mechanism(n-cpt, epsilon=epsilon, mu=kappa)
+    final_sample[(cpt+1):n]<-mechanism(n=n-cpt, mu=kappa)
   }
   return(final_sample)
 }
@@ -104,7 +104,7 @@ change_point_model<-function(n, mechanism=contaminated_sample_t,cpt=NA,kappa=1){
 
 #' @title rumedian changepoint algorithm
 #'
-#' @description Runs rumedian algorithm on \code{online_data}.
+#' @description Runs the rumedian algorithm on \code{online_data}.
 #'
 #' @param online_data The complete dataset to analyse. A vector of numbers.
 #' @param epsilon Contamination level. A number in (0,1).
@@ -122,21 +122,21 @@ rumedian<-function(online_data, epsilon=0, alpha=0.1){
     for (s in 1:floor(t/2)){
       if (s%%2==0 && s>=h_t){
         # Use RUME
-        print(c(s,t))
+        vareps<-max(epsilon, 2*log(1/delta_t)/s)
         diff_rume<-abs(rume(online_data[(t-s+1):t], epsilon=epsilon)-rume(online_data[1:s], epsilon=epsilon))
-        zeta<-2*sigma*2.25*max(vareps^(1-1/v), sqrt(1/s*log(1/delta_t)))
+        zeta<-2*sigma*1.59*max(vareps^(1-1/v), sqrt(2/s*log(1/delta_t)))
         if (diff_rume>zeta){
-          return(list(s,t))
+          return(list(method="RUME",subsample=s,location=t))
         }
       } else {
         # Use median
         diff_median<-abs(median(online_data[(t-s+1):t])-median(online_data[1:s]))
         chi<-0.13*2*2.25*(0.5*exp(-1)*(delta_t/2)^(2/s)-epsilon)^(-1/v)
         if (diff_median>chi){
-          return(list(s,t))
+          return(list(method="median",subsample=s,location=t))
         }
       }
     }
   }
-  return("No changepoint")
+  return(list(method="no changepoint",subsample=s+1,location=t+1))
 }
