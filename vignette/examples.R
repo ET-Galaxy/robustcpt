@@ -1,0 +1,12 @@
+# Example 1: t-distribution with 3 deg of freedom, no contamination
+n=1000
+epsilon=0
+df=3
+sigma=sqrt(df/(df-1))
+alpha=0.2
+v=2
+
+# Type I error
+online_data<-change_point_model(n, cpt=NA)
+
+rumedian(online_data, alpha=0.2)

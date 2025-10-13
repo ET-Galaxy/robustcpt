@@ -1,0 +1,126 @@
+# X is dataset, epsilon is contamination level, delta is confidence level
+rume<-function(X,epsilon=0,delta=0.05){
+  if (length(X)%%2!=0){
+    stop("X must be of even length.")
+  }
+  n<-length(X)/2
+  # Sample splitting
+  X1<-sort(X[1:n])
+  X2<-X[(n+1):(2*n)]
+  
+  # Find shortest interval in X1
+  vareps<-max(epsilon, log(1/delta)/n)
+  datapts<-floor(n*(1-2*vareps-2*sqrt(vareps*log(1/delta)/n)-log(1/delta)/n))
+  if (2*vareps+2*sqrt(vareps*log(1/delta)/n)+log(1/delta)/n>=1/2){
+    stop("Not enough sample size to achieve required confidence level.")
+  }
+  candidates<-c()
+  for (i in 1:(n-datapts)){
+    candidates[i]<-X1[i+datapts]-X1[i]
+  }
+  min_index<-which.min(candidates)
+  interval<-c(X1[min_index], X1[min_index+datapts])
+  
+  # Find mean in X2
+  filtered_X2<-X2[X2<=interval[2] & X2>=interval[1]]
+  return(mean(filtered_X2))
+}
+
+#Contaminated sample 1 (T-DISTRIBUTION contaminated with large variance normal)
+contaminated_sample<-function(n,epsilon=0,mu=0){
+  all_indices<-1:n
+  final_sample<-rt(n,3)+mu
+  contaminated_indices<-all_indices[rbinom(n,1,epsilon)==1]
+  for (i in contaminated_indices){
+    final_sample[i]<-rnorm(1,0,25)
+  }
+  return(final_sample)
+}
+
+# Generate online data
+change_point_model<-function(n,epsilon,cpt=NA,kappa=1){
+  if (is.na(cpt)){
+    final_sample<-contaminated_sample(n,epsilon=epsilon)
+  } else {
+    final_sample<-contaminated_sample(cpt,epsilon=epsilon)
+    final_sample[(cpt+1):n]<-contaminated_sample(n-cpt, epsilon=epsilon, mu=kappa)
+  }
+  return(final_sample)
+}
+
+# Cutoff (Easy case - no contamination)
+# Constant determined as 2.25
+s=50
+v=2
+delta=0.1
+epsilon=0
+mean_dist<-c()
+const<-c()
+for (trial1 in 1:1){
+  for (trial in 1:20000){
+    online_data1=contaminated_sample(s,epsilon=epsilon)
+    online_data2=contaminated_sample(s,epsilon=epsilon)
+    vareps<-max(epsilon, log(1/delta)/s)
+    mean_dist[trial]<-abs(rume(online_data1,epsilon=0,delta=delta)-rume(online_data2,epsilon=0,delta=delta))
+  }
+  theoretical_bound<-2*sqrt(3)*max(vareps^(1-1/v),sqrt(log(1/delta)/s))
+  const[trial1]<-quantile(mean_dist,1-delta)/theoretical_bound
+}
+
+
+
+# Find cutoff
+alpha=0.1
+delta_t=(4*alpha)/(3*t^3-3*t)
+for (trial in 1:20000){
+  online_data=contaminated_sample(t,epsilon=epsilon)
+  vareps<-max(epsilon, log(1/delta_t)/t)
+  datapts<-floor(t*(1-2*vareps-2*sqrt(vareps*log(1/delta_t)/t)-log(1/delta_t)/t))
+  mean_dist[trial]<-abs(median(online_data[(t-s+1):t])-median(online_data[1:s]))
+}
+chi<-2*3^(1/2)*(1/(2*exp(1))*(delta_t/4)^(2/s)-epsilon)^(-1/2)
+C1<-as.numeric(quantile(mean_dist,1-delta_t)/chi)
+C1
+
+# REAL DATA EXAMPLE
+n=300
+epsilon=0
+v=2
+online_data<-change_point_model(n,epsilon=0.1,cpt=n, kappa=5)
+diff_median<-abs(median(online_data[1:100])-median(online_data[201:300]))
+
+
+for (t in 100:n){
+  for (s in 1:floor((t-1)/2)){
+    delta_t=(4*alpha)/(3*t^3-3*t)
+    vareps<-max(epsilon, log(1/delta_t)/t)
+    datapts<-floor(t*(1-2*vareps-2*sqrt(vareps*log(1/delta)/t)-log(1/delta)/t))
+    diff_median<-abs(median(online_data[(t-s+1):t])-median(online_data[1:s]))
+    chi<-2*sigma*(1/2-epsilon-sqrt(2/s*log(1/delta_t)))^(-1/v)
+    if (s<datapts){
+      next
+    }
+    if (s%%2==1){
+      next
+    }
+    diff_rume<-abs(rume(online_data[(t-s+1):t], epsilon=0.1)-rume(online_data[1:s], epsilon=0.1))
+    zeta<-2*sigma*C2*max(vareps^(1-1/v), sqrt(1/s*log(1/delta_t)))
+    if (diff>zeta){
+      return(list(s,t))
+    }
+  }
+}
+
+
+
+# Calibration of RUME
+n<-300
+delta<-0.1
+epsilon<-0
+online_data<-change_point_model(n,epsilon=epsilon)
+t<-datapts
+vareps<-max(epsilon, log(1/delta)/t)
+datapts<-floor(t*(1-2*vareps-2*sqrt(vareps*log(1/delta)/n)-log(1/delta)/n))
+
+diff_rume<-abs(rume(online_data[1:t], epsilon=vareps)-rume(online_data[1:s], epsilon=vareps))
+zeta<-2*sigma*C2*max(epsilon^(1-1/v), sqrt(1/s*log(1/delta)))
