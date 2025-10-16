@@ -3,7 +3,7 @@
     "path": "C:/Users/u2001328/OneDrive - University of Warwick/Documents/WARWICK STATS/CHANGE PT/RUME_cpt/robustcpt/vignette/examples.R",
     "project_path": "vignette/examples.R",
     "type": "r_source",
-    "hash": "177669014",
+    "hash": "0",
     "contents": "",
     "dirty": false,
     "created": 1760352859545.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "9,0",
-        "scrollLine": "0"
+        "cursorPosition": "26,29",
+        "scrollLine": "16"
     },
     "folds": "",
-    "lastKnownWriteTime": 1760367756,
+    "lastKnownWriteTime": 1760628725,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1760367756629,
+    "last_content_update": 1760628725011,
     "read_only": false,
     "read_only_alternatives": []
 }

@@ -112,7 +112,7 @@ change_point_model<-function(n, mechanism=contaminated_sample_t,cpt=NA,kappa=1){
 #' @returns Location where change point is detected
 #'
 #' @export
-rumedian<-function(online_data, epsilon=0, alpha=0.1){
+rumedian_v<-function(online_data, sigma, v=2, epsilon=0, alpha=0.1, C1=1.59, C2=2.25){
   if (epsilon>0.1){
     stop("epsilon>0.1 is not supported.")
   }
@@ -124,14 +124,14 @@ rumedian<-function(online_data, epsilon=0, alpha=0.1){
         # Use RUME
         vareps<-max(epsilon, 2*log(1/delta_t)/s)
         diff_rume<-abs(rume(online_data[(t-s+1):t], epsilon=epsilon)-rume(online_data[1:s], epsilon=epsilon))
-        zeta<-2*sigma*1.59*max(vareps^(1-1/v), sqrt(2/s*log(1/delta_t)))
+        zeta<-2*sigma*C1*max(vareps^(1-1/v), sqrt(2/s*log(1/delta_t)))
         if (diff_rume>zeta){
           return(list(method="RUME",subsample=s,location=t))
         }
       } else {
         # Use median
         diff_median<-abs(median(online_data[(t-s+1):t])-median(online_data[1:s]))
-        chi<-0.13*2*2.25*(0.5*exp(-1)*(delta_t/2)^(2/s)-epsilon)^(-1/v)
+        chi<-2*sigma*C2*(0.5*exp(-1)*(delta_t/2)^(2/s)-epsilon)^(-1/v)
         if (diff_median>chi){
           return(list(method="median",subsample=s,location=t))
         }
@@ -139,4 +139,46 @@ rumedian<-function(online_data, epsilon=0, alpha=0.1){
     }
   }
   return(list(method="no changepoint",subsample=s+1,location=t+1))
+}
+
+
+#' Online Median Object
+#'
+#' Create an online median calculator using two heaps (C++ backend).
+#'
+#' @return An object with methods `insert(x)` and `median()`.
+#' @export
+OnlineMedian <- function() {
+  low <- numeric(0)   # will store the lower half (sorted decreasing)
+  high <- numeric(0)  # will store the upper half (sorted increasing)
+
+  insert <- function(x) {
+    # Decide which side to put it in
+    if (length(low) == 0 || x <= low[1]) {
+      low <<- sort(c(low, x), decreasing = TRUE)
+    } else {
+      high <<- sort(c(high, x))
+    }
+
+    # Balance the sizes
+    if (length(low) > length(high) + 1) {
+      high <<- sort(c(high, low[1]))
+      low <<- low[-1]
+    } else if (length(high) > length(low)) {
+      low <<- sort(c(low, high[1]), decreasing = TRUE)
+      high <<- high[-1]
+    }
+  }
+
+  median <- function() {
+    nL <- length(low)
+    nH <- length(high)
+    if (nL == nH) {
+      return(mean(c(low[1], high[1])))
+    } else {
+      return(low[1])
+    }
+  }
+
+  list(insert = insert, median = median)
 }

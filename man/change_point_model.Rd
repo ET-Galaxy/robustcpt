@@ -12,7 +12,7 @@ change_point_model(n, mechanism = contaminated_sample_t, cpt = NA, kappa = 1)
 \item{mechanism}{A function for the sample generating mechanism with two inputs, n and epsilon.
 Defaults to \code{contaminated_sample_t}.}
 
-\item{cpt}{Location of changepoint. A positive integer less than n or \code{NA}, which
+\item{cpt}{Location of change point. A positive integer less than n or \code{NA}, which
 means no change point. Defaults to NA}
 
 \item{kappa}{Change in mean at the change point.}
