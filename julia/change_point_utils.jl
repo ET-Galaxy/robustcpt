@@ -1,6 +1,6 @@
 using Random, Distributions, Statistics
-# --- Helper functions -------------------------------------------------------
 
+# --- Robust Univariate Mean Estimator ---------------------------------------
 function rume(X::Vector{Float64}; epsilon=0.0, delta=0.05)
     n_total = length(X)
     if n_total % 2 != 0
@@ -24,6 +24,7 @@ function rume(X::Vector{Float64}; epsilon=0.0, delta=0.05)
     return mean(filtered_X2)
 end
 
+# --- Contaminated t-distribution sampler -----------------------------------
 function contaminated_sample_t(n; df=3.0, epsilon=0.0, mu=0.0)
     t_samples = rand(TDist(df), n) .+ mu
     contam_mask = rand(Binomial(1, epsilon), n) .== 1
@@ -31,17 +32,19 @@ function contaminated_sample_t(n; df=3.0, epsilon=0.0, mu=0.0)
     return t_samples
 end
 
+# --- Change-point data generator -------------------------------------------
 function change_point_model(n; mechanism=contaminated_sample_t, cpt=nothing, kappa=1.0)
     if isnothing(cpt)
-        return mechanism(n=n)
+        return mechanism(n)
     else
-        sample = mechanism(n=cpt)
+        sample = mechanism(cpt)
         append!(sample, mechanism(n=n-cpt, mu=kappa))
         return sample
     end
 end
 
-function rumedian_v(online_data::Vector{Float64}, sigma; v=2, epsilon=0.0, alpha=0.1, C1=1, C2=0.04)
+# --- RUMEDIAN change-point detection ---------------------------------------
+function rumedian_v(online_data::Vector{Float64}, sigma; v=2, epsilon=0.0, alpha=0.1, C1=1.59, C2=2.25)
     n = length(online_data)
     if epsilon > 0.1
         error("epsilon > 0.1 is not supported.")
@@ -68,5 +71,5 @@ function rumedian_v(online_data::Vector{Float64}, sigma; v=2, epsilon=0.0, alpha
             end
         end
     end
-    return Dict("method" => "no changepoint", "subsample" => nothing, "location" => nothing)
+    return Dict("method" => "no changepoint", "subsample" => s+1, "location" => t+1)
 end
