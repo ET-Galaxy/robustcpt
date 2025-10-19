@@ -25,7 +25,7 @@ function rume(X::Vector{Float64}; epsilon=0.0, delta=0.05)
 end
 
 # --- Contaminated t-distribution sampler -----------------------------------
-function contaminated_sample_t(n; df=3.0, epsilon=0.0, mu=0.0)
+function contaminated_sample_t(n, mu=0.0; df=3.0, epsilon=0.0)
     t_samples = rand(TDist(df), n) .+ mu
     contam_mask = rand(Binomial(1, epsilon), n) .== 1
     t_samples[contam_mask] .= rand.(Normal(0, 100), count(contam_mask))
@@ -38,7 +38,7 @@ function change_point_model(n; mechanism=contaminated_sample_t, cpt=nothing, kap
         return mechanism(n)
     else
         sample = mechanism(cpt)
-        append!(sample, mechanism(n=n-cpt, mu=kappa))
+        append!(sample, mechanism(n-cpt, kappa))
         return sample
     end
 end
@@ -71,5 +71,5 @@ function rumedian_v(online_data::Vector{Float64}, sigma; v=2, epsilon=0.0, alpha
             end
         end
     end
-    return Dict("method" => "no changepoint", "subsample" => s+1, "location" => t+1)
+    return Dict("method" => "no changepoint", "subsample" => -1, "location" => -1)
 end
