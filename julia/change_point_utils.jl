@@ -11,10 +11,11 @@ function rume(X::Vector{Float64}; epsilon=0.0, delta=0.05)
     X2 = X[n+1:end]
 
     vareps = max(epsilon, log(1/delta)/n)
-    datapts = floor(Int, n*(1 - 2*vareps - 2*sqrt(vareps*log(1/delta)/n) - log(1/delta)/n))
-    if 2*vareps + 2*sqrt(vareps*log(1/delta)/n) + log(1/delta)/n >= 0.5
+    prop=2*vareps + 2*sqrt(vareps*log(1/delta)/n) + log(1/delta)/n
+    if  prop>= 0.5
         error("Not enough sample size to achieve required confidence level.")
     end
+    datapts = floor(Int, n*(1 - prop))
 
     candidates = [X1[i+datapts] - X1[i] for i in 1:(n-datapts)]
     min_index = argmin(candidates)
@@ -28,7 +29,10 @@ end
 function contaminated_sample_t(n, mu=0.0; df=3.0, epsilon=0.0)
     t_samples = rand(TDist(df), n) .+ mu
     contam_mask = rand(Binomial(1, epsilon), n) .== 1
-    t_samples[contam_mask] .= rand.(Normal(0, 100), count(contam_mask))
+    contam_idx = findall(contam_mask)
+    if !isempty(contam_idx)
+        t_samples[contam_idx] = rand(Normal(0, 100), length(contam_idx))
+    end
     return t_samples
 end
 
