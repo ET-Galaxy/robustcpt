@@ -67,10 +67,13 @@ function rumedian_v(online_data::Vector{Float64}, sigma; v=2, epsilon=0.0, alpha
                     return Dict("method" => "RUME", "subsample" => s, "location" => t)
                 end
             else
-                diff_median = abs(median(online_data[(t-s+1):t]) - median(online_data[1:s]))
-                chi = 2*sigma*C2*(0.5*exp(-1)*(delta_t/2)^(2/s) - epsilon)^(-1/v)
-                if diff_median > chi
-                    return Dict("method" => "median", "subsample" => s, "location" => t)
+                conf=0.5*exp(-1)*(delta_t/2)^(2/s) - epsilon
+                if conf>0
+                    diff_median = abs(median(online_data[(t-s+1):t]) - median(online_data[1:s]))
+                    chi = 2*sigma*C2*(conf^(-1/v))
+                    if diff_median > chi
+                        return Dict("method" => "median", "subsample" => s, "location" => t)
+                    end
                 end
             end
         end
