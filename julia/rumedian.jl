@@ -16,12 +16,12 @@ df = 2.1
 v = 2
 sigma = sigma_t(df,v)
 alpha = 0.2
-n = 2000
-C1=0.22 # RUME constant
-C2=0.05 # median constant
+n = 2400
+C1=0.21 # RUME constant
+C2=0.013 # median constant
 #eps=0: C1=0.22, C2=0.04 for df=2.1; C1=0.195, C2=0.11 for df=4.1; C1=0.17, C2=0.14 for df=6.1
 #eps=0.05: C1=0.22, C2=0.024 for df=2.1; C1=0.2, C2=0.05 for df=4.1; C1=0.19, C2=0.077 for df=6.1
-#eps=0.1: C1=0.22, C2=0.05 for df=6.1
+#eps=0.1: C1=0.21, C2=0.013 for df=2.1;C1=0.22, C2=0.037 for df=4.1; C1=0.22, C2=0.05 for df=6.1
 mechanism_df = (n, mu=0.0) -> contaminated_sample_t(n, mu; df=df, epsilon=epsilon)
 
 # detected = String[]
@@ -31,10 +31,10 @@ mechanism_df = (n, mu=0.0) -> contaminated_sample_t(n, mu; df=df, epsilon=epsilo
 #     push!(detected, result["method"])
 # end
 # println(countmap(detected))
-# writedlm("t1e_v6e10.csv", countmap(detected), ',')
+# writedlm("t1e_v2e10.csv", countmap(detected), ',')
 
-reps = 100
-kappa_sizes = [4*sigma, 2*sigma, sigma, 0.5*sigma, 0.25*sigma, sigma/8, sigma/16]
+reps = 10
+kappa_sizes = sigma*(0:0.02:0.3)
 locations = zeros(length(kappa_sizes), reps)
 for k in 1:length(kappa_sizes)
     for i in 1:reps
@@ -44,7 +44,7 @@ for k in 1:length(kappa_sizes)
     end
 end
 println(locations)
-writedlm("locations_v6e10.csv", locations, ',')
+# writedlm("locations_v2e10new.csv", locations, ',')
 
 # c2=0.021
 # done=false
