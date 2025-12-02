@@ -33,8 +33,8 @@ mechanism_df = (n, mu=0.0) -> contaminated_sample_t(n, mu; df=df, epsilon=epsilo
 # println(countmap(detected))
 # writedlm("t1e_v2e10.csv", countmap(detected), ',')
 
-reps = 10
-kappa_sizes = sigma*(0:0.02:0.3)
+reps = 200
+kappa_sizes = sigma*(0.17:0.02:0.31)
 locations = zeros(length(kappa_sizes), reps)
 for k in 1:length(kappa_sizes)
     for i in 1:reps
@@ -44,7 +44,7 @@ for k in 1:length(kappa_sizes)
     end
 end
 println(locations)
-# writedlm("locations_v2e10new.csv", locations, ',')
+writedlm("locations_v2e10new3.csv", locations, ',')
 
 # c2=0.021
 # done=false

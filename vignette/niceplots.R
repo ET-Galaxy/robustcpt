@@ -4,53 +4,107 @@ library(dplyr)
 library(tibble)
 
 # Read CSV with no header
-data <- read.csv("data/Latest_format/locations_v2new2.csv", header = FALSE)
+data1 <- read.csv("data/Latest_format/locations_v2e10all.csv")
 
+# ==== Data treatment ====
+data2 <- read.csv("data/Latest_format/locations_v2e10new2.csv", header = FALSE)
+data_bars<-data2
+data_bars[data_bars == -1] <- 2401
+
+detected_long <- data_bars %>%
+  mutate(snr = c(2:50)/5) %>%
+  pivot_longer(-snr, values_to = "stoppingT")
+colnames(detected_long)[2]<-"trial"
+
+write.csv(rbind(data1,as.data.frame(detected_long)),
+          "data/Latest_format/locations_v2e10all.csv", row.names = FALSE)
+
+# ==== Proportion plot ====
 # Function to compute proportions for each row
 get_proportions <- function(x) {
   total <- length(x)
   c(
-    not_detected = sum(x == -1) / total,
+    not_detected = sum(x >= 2400) / total,
     false_alarm = sum(x >= 0 & x <= 600) / total,
-    detected = sum(x > 600) / total
+    detected = sum(x > 600 & x < 2400) / total
   )
 }
 
 # Apply row-wise
-props <- t(apply(data, 1, get_proportions))
-props <- as.data.frame(props)
-
-desired_order <-2:50/5
-rownames(props) <- desired_order
-props[1,2]<-props[1,2]+props[1,3]
-props[1,3]<-0
-
-# Prepare proportions data for ggplot
-props_long <- props %>%
-  rownames_to_column("row_label") %>%
-  pivot_longer(cols = -row_label, names_to = "category", values_to = "proportion") %>%
-  mutate(
-    row_label = factor(row_label, levels = desired_order),
-    # define stacking order: zero_600 at bottom, above600 above it, neg1 on top
-    category = factor(category, levels = c("detected","not_detected", "false_alarm"))
+# Group by snr and compute proportions
+props <- detected_long %>%
+  filter(snr<=0.08) %>%
+  group_by(snr) %>%
+  reframe(
+    tibble::as_tibble_row(get_proportions(stoppingT))
   )
 
+props$false_alarm[1]<-props$false_alarm[1]+props$detected[1]
+props$detected[1]<-0
 
-ggplot(props_long, aes(x = row_label, y = proportion, fill = category)) +
+props_longer<- props %>%
+  pivot_longer(
+    cols = c(not_detected, false_alarm, detected),
+    names_to = "category",
+    values_to = "proportion") %>%
+  mutate(category = factor(category,
+                           levels = c("detected","not_detected","false_alarm")))
+
+ggplot(props_longer, aes(x = factor(snr), y = proportion, fill = category)) +
   geom_bar(stat = "identity") +
-  geom_hline(yintercept = 0.2, linetype = "dotted", color = "yellow", size = 1)+
-  labs(x = "Signal size", y = "Proportion", title = "Proportion of Successful Detection against signal size (v=2, eps=0.05)") +
-  scale_fill_manual(values = c("not_detected" = "orange", "false_alarm" = "red", "detected" = "steelblue")) +
-  theme_minimal()
+  labs(
+    x = "SNR",
+    y = "Proportion",
+    fill = "Category",
+    title = "Proportion of Outcomes by SNR"
+  ) +
+  scale_fill_manual(
+    values = c(
+      false_alarm  = "firebrick2",
+      not_detected = "gold",
+      detected     = "forestgreen"
+    )
+  ) +
+  theme_minimal(base_size = 14)
 
-# Boxplot
-detected_long <- data[-1,] %>%
-  mutate(row_label = rownames(props)[-1]) %>%
-  pivot_longer(-row_label, values_to = "value") %>%
-  filter(value > 600) %>%
-  mutate(row_label = factor(row_label, levels = desired_order[-1]))
+# ==== Boxplot ====
+detected_long <- data1 %>%
+  filter(stoppingT > 600, snr>=0.08) %>%
+  mutate(snr = factor(snr))
 
-ggplot(detected_long, aes(x = row_label, y = value-600)) +
+ggplot(detected_long, aes(x = snr, y = stoppingT-600)) +
   geom_boxplot(fill = "steelblue", outlier.color = "red") +
   labs(x = "Signal size", y = "Detection delay", title = "Detection delay against signal size (v=2, eps=0.05)") +
   theme_minimal()
+
+# ====== Mean plot =====
+detected_long <- data1 %>%
+  filter(snr >=0.08)%>%
+  filter(stoppingT > 600)
+
+result <- detected_long %>%
+  group_by(snr) %>%
+  summarise(meanT = mean(stoppingT))
+
+mod<-lm(meanT~I((snr)^(-2)), data=result[result$snr<=0.3,])
+summary(mod)
+
+mod2<-lm(meanT~I((log(snr*4.582576))^(-1)), data=result[result$snr>=0.31,])
+summary(mod2)
+
+plot(result$snr, result$meanT,
+     xlab = "Signal-to-noise ratio",
+     ylab = "Detection time",
+     pch = 19, xlim=c(0.1,0.6), ylim = c(630,850))
+
+plot(result$snr, result$meanT,
+     xlab = "Signal-to-noise ratio",
+     ylab = "Detection time",
+     pch = 19, xlim=c(1,10), ylim = c(624,630))
+
+# add fitted regression line
+curve(predict(mod, newdata = data.frame(snr = x)), from = 0,
+      to = 0.3,add = TRUE, lwd = 2, col = "blue")
+
+curve(predict(mod2, newdata = data.frame(snr = x)), from = 0.3,
+      to = 10,add = TRUE, lwd = 2, col = "green")
