@@ -7,17 +7,21 @@ library(tibble)
 data1 <- read.csv("data/Latest_format/locations_v2e10all.csv")
 
 # ==== Data treatment ====
-data2 <- read.csv("data/Latest_format/locations_v2e10new2.csv", header = FALSE)
+data2 <- read.csv("data/Latest_format/rawdata/locations_v2e10final.csv", header = FALSE)
 data_bars<-data2
 data_bars[data_bars == -1] <- 2401
 
 detected_long <- data_bars %>%
-  mutate(snr = c(2:50)/5) %>%
+  mutate(snr = c(0:15)/50) %>%
   pivot_longer(-snr, values_to = "stoppingT")
 colnames(detected_long)[2]<-"trial"
 
-write.csv(rbind(data1,as.data.frame(detected_long)),
-          "data/Latest_format/locations_v2e10all.csv", row.names = FALSE)
+total<-rbind(data1,as.data.frame(detected_long))
+total<-total[order(total$snr),]
+
+#write.csv(total,"data/Latest_format/locations_v2e10all.csv", row.names = FALSE)
+write.csv(detected_long,
+          "data/Latest_format/locations_v2e10_1000sim.csv", row.names = FALSE)
 
 # ==== Proportion plot ====
 # Function to compute proportions for each row
@@ -32,7 +36,7 @@ get_proportions <- function(x) {
 
 # Apply row-wise
 # Group by snr and compute proportions
-props <- detected_long %>%
+props <- data1 %>%
   filter(snr<=0.08) %>%
   group_by(snr) %>%
   reframe(
@@ -53,10 +57,10 @@ props_longer<- props %>%
 ggplot(props_longer, aes(x = factor(snr), y = proportion, fill = category)) +
   geom_bar(stat = "identity") +
   labs(
-    x = "SNR",
+    x = expression(kappa/phi),
     y = "Proportion",
     fill = "Category",
-    title = "Proportion of Outcomes by SNR"
+    title = "v=2, eps=0.1"
   ) +
   scale_fill_manual(
     values = c(
@@ -86,21 +90,24 @@ result <- detected_long %>%
   group_by(snr) %>%
   summarise(meanT = mean(stoppingT))
 
-mod<-lm(meanT~I((snr)^(-2)), data=result[result$snr<=0.3,])
+result$meanT<-result$meanT-600
+
+mod<-lm(meanT~I((snr)^(-2))+0, data=result[result$snr<=0.3,])
 summary(mod)
 
-mod2<-lm(meanT~I((log(snr*4.582576))^(-1)), data=result[result$snr>=0.31,])
+mod2<-lm(meanT~I((log(snr*4.582576))^(-1))+0, data=result[result$snr>=0.3,])
+#mod2<-lm(meanT~I((log(snr*6))^(-1))+0, data=result[result$snr>=0.2,])
 summary(mod2)
 
 plot(result$snr, result$meanT,
      xlab = "Signal-to-noise ratio",
-     ylab = "Detection time",
-     pch = 19, xlim=c(0.1,0.6), ylim = c(630,850))
+     ylab = "Mean Detection delay",
+     pch = 19)
 
 plot(result$snr, result$meanT,
-     xlab = "Signal-to-noise ratio",
-     ylab = "Detection time",
-     pch = 19, xlim=c(1,10), ylim = c(624,630))
+     xlab = expression(kappa/phi),
+     ylab = "Mean Detection delay",
+     pch = 19, xlim=c(0.1,0.6), ylim=c(0,300))
 
 # add fitted regression line
 curve(predict(mod, newdata = data.frame(snr = x)), from = 0,
