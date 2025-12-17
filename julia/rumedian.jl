@@ -1,6 +1,7 @@
 using Random, Statistics, StatsBase, DelimitedFiles
 include("change_point_utils.jl")
 
+# ==== Finite moment ====
 function sigma_t(df,v)
     if v==2
         return (df / (df - 2))^(1/2)
@@ -34,7 +35,7 @@ mechanism_df = (n, mu=0.0) -> contaminated_sample_t(n, mu; df=df, epsilon=epsilo
 # writedlm("t1e_v2e10.csv", countmap(detected), ',')
 
 reps = 200
-kappa_sizes = sigma*(0.17:0.02:0.31)
+kappa_sizes = 0 # sigma*(0)
 locations = zeros(length(kappa_sizes), reps)
 for k in 1:length(kappa_sizes)
     for i in 1:reps
