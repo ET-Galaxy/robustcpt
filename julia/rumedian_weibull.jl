@@ -6,9 +6,9 @@ epsilon = 0.1
 sigma = 1
 theta = 1
 alpha = 0.2
-n = 2000
-C1=0.54 # RUME constant
-C2=0.074 # median constant
+n = 2400
+C1=0.53 # RUME constant
+C2=0.075 # median constant
 #eps=0.1: C1=0.21, C2=0.013 for theta=1
 mechanism_df = (n, mu=0.0) -> contaminated_laplace(n, mu; epsilon=epsilon)
 
