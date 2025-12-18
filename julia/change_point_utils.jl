@@ -36,6 +36,21 @@ function contaminated_sample_t(n, mu=0.0; df=3.0, epsilon=0.0)
     return t_samples
 end
 
+# --- Contaminated laplace sampler -----------------------------------
+function contaminated_laplace(n, mu=0.0; epsilon=0.0)
+    samples = rand(Laplace(mu, 1), n)
+    contam_mask = rand(Bernoulli(epsilon), n)
+    
+    # 3. Replace only those indices with high-variance noise
+    for i in 1:n
+        if contam_mask[i]
+            samples[i] = abs(rand(Normal(0, 100))) # The "outlier" distribution
+        end
+    end
+    
+    return samples
+end
+
 # --- Change-point data generator -------------------------------------------
 function change_point_model(n; mechanism=contaminated_sample_t, cpt=nothing, kappa=1.0)
     if isnothing(cpt)
@@ -48,6 +63,39 @@ function change_point_model(n; mechanism=contaminated_sample_t, cpt=nothing, kap
 end
 
 # --- RUMEDIAN change-point detection ---------------------------------------
+function rumedian_theta(online_data::Vector{Float64}, sigma; theta=1, epsilon=0.0, alpha=0.1, C1=1.59, C2=2.25)
+    n = length(online_data)
+    if epsilon > 0.1
+        error("epsilon > 0.1 is not supported.")
+    end
+
+    for t in 2:n
+        delta_t = (8*alpha)/(3*t^3 - 3*t)
+        h_t = ceil(Int, 20*log(1/delta_t))
+        for s in 1:floor(Int, t/2)
+            if iseven(s) && s >= h_t
+                vareps = max(epsilon, 2*log(1/delta_t)/s)
+                diff_rume = abs(rume(online_data[(t-s+1):t]; epsilon=epsilon) -
+                                rume(online_data[1:s]; epsilon=epsilon))
+                zeta = 2*sigma*C1*max(vareps*(log(1/vareps))^(1+1/theta), sqrt(2/s*log(1/delta_t)))
+                if diff_rume > zeta
+                    return Dict("method" => "RUME", "subsample" => s, "location" => t)
+                end
+            else
+                conf=0.5*exp(-1)*(delta_t/2)^(2/s) - epsilon
+                if conf>0
+                    diff_median = abs(median(online_data[(t-s+1):t]) - median(online_data[1:s]))
+                    chi = 2*sigma*C2*(log(2/conf))^(1/theta)
+                    if diff_median > chi
+                        return Dict("method" => "median", "subsample" => s, "location" => t)
+                    end
+                end
+            end
+        end
+    end
+    return Dict("method" => "no changepoint", "subsample" => -1, "location" => -1)
+end
+
 function rumedian_v(online_data::Vector{Float64}, sigma; v=2, epsilon=0.0, alpha=0.1, C1=1.59, C2=2.25)
     n = length(online_data)
     if epsilon > 0.1
