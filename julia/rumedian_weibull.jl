@@ -9,7 +9,7 @@ alpha = 0.2
 n = 2400
 C1=0.53 # RUME constant
 C2=0.075 # median constant
-#eps=0.1: C1=0.21, C2=0.013 for theta=1
+#eps=0.1: C1=0.53, C2=0.075 for theta=1
 mechanism_df = (n, mu=0.0) -> contaminated_laplace(n, mu; epsilon=epsilon)
 
 detected = String[]
@@ -26,7 +26,7 @@ println(countmap(detected))
 # for k in 1:length(kappa_sizes)
 #     for i in 1:reps
 #         online_data = change_point_model(n; mechanism=mechanism_df, cpt=600, kappa=kappa_sizes[k])
-#         result = rumedian_v(online_data, sigma; v=v, epsilon=epsilon, alpha=alpha, C1=C1, C2=C2)
+#         result = rumedian_theta(online_data, sigma; theta=theta, epsilon=epsilon, alpha=alpha, C1=C1, C2=C2)
 #         locations[k,i]=result["location"]
 #     end
 # end

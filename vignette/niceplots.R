@@ -4,24 +4,25 @@ library(dplyr)
 library(tibble)
 
 # Read CSV with no header
-data1 <- read.csv("data/Latest_format/locations_v2e10_R2R3all.csv")
+data1 <- read.csv("data/Latest_format/locations_v2e10R2R3.csv")
 
 # ==== Data treatment ====
-data2 <- read.csv("data/Latest_format/rawdata/locations_v2e10_R2R3more.csv", header = FALSE)
+data2 <- read.csv("data/Latest_format/rawdata/locations_th1e10_R1R2_tunedup.csv", header = FALSE)
 data_bars<-data2
 data_bars[data_bars == -1] <- 2401
 
 detected_long <- data_bars %>%
-  mutate(snr = seq(from = 0.085, to = 0.495, by = 0.01)) %>%
+  mutate(snr = seq(from = 0, to = 0.1, by = 0.01)) %>%
   pivot_longer(-snr, values_to = "stoppingT")
 colnames(detected_long)[2]<-"trial"
 
-total<-rbind(data1,as.data.frame(detected_long))
-total<-total[order(total$snr),]
+total<-as.data.frame(detected_long)
+# total<-rbind(data1,as.data.frame(detected_long))
+# total<-total[order(total$snr),]
 
-write.csv(total,"data/Latest_format/locations_v2e10_R2R3all.csv", row.names = FALSE)
-#write.csv(detected_long,
-#         "data/Latest_format/locations_v2e10R1R2.csv", row.names = FALSE)
+write.csv(total,"data/Latest_format/locations_th1e10.csv", row.names = FALSE)
+# write.csv(detected_long,
+#         "data/Latest_format/locations_th1e10.csv", row.names = FALSE)
 
 # ==== Proportion plot ====
 # Function to compute proportions for each row
@@ -37,7 +38,7 @@ get_proportions <- function(x) {
 # Apply row-wise
 # Group by snr and compute proportions
 props <- data1 %>%
- filter(snr<=0.08) %>%
+  filter(snr<=0.1) %>%
   group_by(snr) %>%
   reframe(
     tibble::as_tibble_row(get_proportions(stoppingT))
@@ -54,25 +55,43 @@ props_longer<- props %>%
   mutate(category = factor(category,
                            levels = c("not_detected","detected","false_alarm")))
 
-ggplot(props_longer, aes(x = factor(snr), y = proportion, fill = category)) +
-  geom_bar(stat = "identity") +
+snr_step <- min(diff(sort(unique(props_longer$snr))))
+
+ggplot(props_longer,
+       aes(x = snr,
+           y = proportion,
+           fill = category)) +
+  geom_col(width = snr_step * 0.98,
+           colour = "white",
+           linewidth = 0.2) +
+  geom_hline(yintercept = 0.2,
+             linetype = "dashed",
+             linewidth = 0.4) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0, 0))
+  ) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    expand = expansion(mult = c(0, 0))
+  ) +
   labs(
     x = expression(kappa/phi),
     y = "Proportion",
-    fill = "Category",
-    title = "v=2, eps=0.1"
+    title = "Detection performance (v = 2, ε = 0.1)"
   ) +
   scale_fill_manual(
     values = c(
-      false_alarm  = "firebrick2",
-      not_detected = "gold",
-      detected     = "forestgreen"
+      not_detected = "#999999",
+      detected     = "#0072B2",
+      false_alarm  = "#D55E00"
     )
   ) +
-  theme_minimal(base_size = 14)+ theme(
-    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+  theme_classic(base_size = 14) +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank(),
+    plot.title = element_text(face = "bold")
   )
-
 # ==== Boxplot ====
 detected_long <- data1 %>%
   filter(stoppingT > 600, snr>=0.08) %>%
@@ -101,19 +120,90 @@ mod2<-lm(meanT~I((log(snr*4.582576*4))^(-1))+0, data=result, weights = 1/sdT)
 #mod2<-lm(meanT~I((log(snr*6))^(-1))+0, data=result[result$snr>=0.2,])
 summary(mod2)
 
-plot(result$snr, result$meanT,
-     xlab = "Signal-to-noise ratio",
-     ylab = "Mean Detection delay",
-     pch = 19)
+# dense grid for smooth curves
+grid <- data.frame(
+  snr = seq(min(result$snr),
+            max(result$snr),
+            length.out = 400)
+)
 
-plot(result$snr, result$meanT,
-     xlab = expression(kappa/phi),
-     ylab = "Mean Detection delay",
-     pch = 19)
+grid$fit_inv_sq  <- predict(mod,  newdata = grid)
+grid$fit_log_inv <- predict(mod2, newdata = grid)
 
-# add fitted regression line
-curve(predict(mod, newdata = data.frame(snr = x)), from = 0,
-      to = 0.5, add = TRUE, lwd = 2, col = "blue")
+ggplot(result, aes(x = snr, y = meanT)) +
+  geom_point(aes(colour = "Observed"),
+             size = 2.2) +
+  geom_line(data = grid,
+            aes(y = fit_inv_sq,
+                colour = "Inverse-square"),
+            linewidth = 1) +
+  geom_line(data = grid,
+            aes(y = fit_log_inv,
+                colour = "Inverse-log"),
+            linewidth = 1,
+            linetype = "22") +
+  labs(
+    x = expression(kappa/phi),
+    y = "Mean detection delay",
+    colour = NULL
+  ) +
+  scale_colour_manual(
+    values = c(
+      "Observed"       = "black",
+      "Inverse-square" = "#1f78b4",
+      "Inverse-log"    = "#b15928"
+    )
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major = element_line(colour = "grey85", linewidth = 0.4),
+    panel.grid.minor = element_line(colour = "grey93", linewidth = 0.2),
+    panel.grid.minor.x = element_blank(),
+    legend.position = "top",
+    legend.box = "horizontal",
+    plot.title = element_text(face = "bold")
+  )
 
-curve(predict(mod2, newdata = data.frame(snr = x)), from = 0,
-      to = 0.5,add = TRUE, lwd = 2, col = "green")
+
+# prediction grid
+grid <- data.frame(
+  snr = seq(min(result$snr[result$snr > 0]),
+            max(result$snr),
+            length.out = 400)
+)
+
+grid$fit_inv_sq  <- predict(mod,  newdata = grid)
+grid$fit_log_inv <- predict(mod2, newdata = grid)
+
+ggplot(result, aes(x = snr, y = meanT)) +
+  geom_point(aes(colour = "Observed"),
+             size = 2.5) +
+  geom_line(data = grid,
+            aes(y = fit_inv_sq,
+                colour = "Inverse-square"),
+            linewidth = 1) +
+  geom_line(data = grid,
+            aes(y = fit_log_inv,
+                colour = "Inverse-log"),
+            linewidth = 1,
+            linetype = "dashed") +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    x = expression(kappa/phi),
+    y = "Mean detection delay",
+    colour = NULL,
+    title = "Log–log comparison of scaling models"
+  ) +
+  scale_colour_manual(
+    values = c(
+      "Observed"       = "black",
+      "Inverse-square" = "#0072B2",
+      "Inverse-log"    = "#D55E00"
+    )
+  ) +
+  theme_classic(base_size = 14) +
+  theme(
+    legend.position = "top",
+    plot.title = element_text(face = "bold")
+  )

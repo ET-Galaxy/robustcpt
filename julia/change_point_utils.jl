@@ -17,9 +17,9 @@ function rume(X::Vector{Float64}; epsilon=0.0, delta=0.05)
     end
     datapts = floor(Int, n*(1 - prop))
 
-    candidates = [X1[i+datapts] - X1[i] for i in 1:(n-datapts)]
+    candidates = [X1[i+datapts-1] - X1[i] for i in 1:(n-datapts+1)]
     min_index = argmin(candidates)
-    interval = (X1[min_index], X1[min_index+datapts])
+    interval = (X1[min_index], X1[min_index+datapts-1])
 
     filtered_X2 = filter(x -> interval[1] ≤ x ≤ interval[2], X2)
     return mean(filtered_X2)
@@ -41,7 +41,7 @@ function contaminated_laplace(n, mu=0.0; epsilon=0.0)
     samples = rand(Laplace(mu, 1), n)
     contam_mask = rand(Bernoulli(epsilon), n)
     
-    # 3. Replace only those indices with high-variance noise
+    # Replace only those indices with high-variance noise
     for i in 1:n
         if contam_mask[i]
             samples[i] = abs(rand(Normal(0, 100))) # The "outlier" distribution
@@ -63,7 +63,7 @@ function change_point_model(n; mechanism=contaminated_sample_t, cpt=nothing, kap
 end
 
 # --- RUMEDIAN change-point detection ---------------------------------------
-function rumedian_theta(online_data::Vector{Float64}, sigma; theta=1, epsilon=0.0, alpha=0.1, C1=1.59, C2=2.25)
+function rumedian_theta(online_data::Vector{Float64}, sigma; theta=1, epsilon=0.0, alpha=0.1, C1=0.53, C2=0.075)
     n = length(online_data)
     if epsilon > 0.1
         error("epsilon > 0.1 is not supported.")
