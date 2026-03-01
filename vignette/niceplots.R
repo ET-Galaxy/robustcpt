@@ -3,28 +3,6 @@ library(tidyr)
 library(dplyr)
 library(tibble)
 
-# Read CSV with no header
-data1 <- read.csv("data/Latest_format/locations_v2e10R2R3.csv")
-
-# ==== Data treatment ====
-data2 <- read.csv("data/Latest_format/rawdata/locations_th1e10_R1R2_tunedup.csv", header = FALSE)
-data_bars<-data2
-data_bars[data_bars == -1] <- 2401
-
-detected_long <- data_bars %>%
-  mutate(snr = seq(from = 0, to = 0.1, by = 0.01)) %>%
-  pivot_longer(-snr, values_to = "stoppingT")
-colnames(detected_long)[2]<-"trial"
-
-total<-as.data.frame(detected_long)
-# total<-rbind(data1,as.data.frame(detected_long))
-# total<-total[order(total$snr),]
-
-write.csv(total,"data/Latest_format/locations_th1e10.csv", row.names = FALSE)
-# write.csv(detected_long,
-#         "data/Latest_format/locations_th1e10.csv", row.names = FALSE)
-
-# ==== Proportion plot ====
 # Function to compute proportions for each row
 get_proportions <- function(x) {
   total <- length(x)
@@ -35,10 +13,32 @@ get_proportions <- function(x) {
   )
 }
 
-# Apply row-wise
+# Read CSV with no header
+data1 <- read.csv("data/Latest_format/locations_th1e10all.csv")
+
+# ==== Data treatment ====
+data2 <- read.csv("data/Latest_format/rawdata/locations_th1e10_R2R3more.csv", header = FALSE)
+# data2 <- read.csv("data/Latest_format/rawdata/locations_v2e10_R3R4.csv", header = FALSE)
+data_bars<-data2
+data_bars[data_bars == -1] <- 2401
+
+detected_long <- data_bars %>%
+  mutate(snr = seq(from = 0.61, to = 1, by = 0.01)) %>%
+  pivot_longer(-snr, values_to = "stoppingT")
+colnames(detected_long)[2]<-"trial"
+
+# total<-as.data.frame(detected_long)
+total<-rbind(data1,as.data.frame(detected_long))
+# total<-total[order(total$snr),]
+
+write.csv(total,"data/Latest_format/locations_th1e10all.csv", row.names = FALSE)
+# write.csv(detected_long,
+#         "data/Latest_format/locations_th1e10.csv", row.names = FALSE)
+
+# ==== Proportion plot ====
 # Group by snr and compute proportions
 props <- data1 %>%
-  filter(snr<=0.1) %>%
+  filter(snr<=0.25) %>%
   group_by(snr) %>%
   reframe(
     tibble::as_tibble_row(get_proportions(stoppingT))
@@ -77,7 +77,7 @@ ggplot(props_longer,
   labs(
     x = expression(kappa/phi),
     y = "Proportion",
-    title = "Detection performance (v = 2, ε = 0.1)"
+    title = "\u03B8 = 1, \u03b5 = 0.1"
   ) +
   scale_fill_manual(
     values = c(
@@ -90,11 +90,22 @@ ggplot(props_longer,
   theme(
     legend.position = "top",
     legend.title = element_blank(),
-    plot.title = element_text(face = "bold")
+    plot.title = element_text(face = "bold", hjust = 0.5)
   )
+
+ggsave(
+  filename = "data/presentation illustrations/th1e10_R2R3plot.jpg",
+  plot = last_plot(),         # Saves the last ggplot you displayed
+  device = agg_png,           # This is the magic part
+  width = 5.43,
+  height = 3.92,
+  units = "in",
+  res = 300                   # High resolution for publication
+)
+
 # ==== Boxplot ====
 detected_long <- data1 %>%
-  filter(stoppingT > 600, snr>=0.08) %>%
+  filter(stoppingT > 600, snr>=0.25) %>%
   mutate(snr = factor(snr))
 
 ggplot(detected_long, aes(x = snr, y = stoppingT-600)) +
@@ -104,7 +115,7 @@ ggplot(detected_long, aes(x = snr, y = stoppingT-600)) +
 
 # ====== Mean plot =====
 detected_long <- data1 %>%
-  filter(snr >=0.08)%>%
+  filter(snr >=0.22)%>%
   filter(stoppingT > 600)
 
 result <- detected_long %>%
@@ -131,57 +142,78 @@ grid$fit_inv_sq  <- predict(mod,  newdata = grid)
 grid$fit_log_inv <- predict(mod2, newdata = grid)
 
 ggplot(result, aes(x = snr, y = meanT)) +
-  geom_point(aes(colour = "Observed"),
-             size = 2.2) +
+  geom_point(size = 1.6, colour = "black") +
   geom_line(data = grid,
             aes(y = fit_inv_sq,
                 colour = "Inverse-square"),
-            linewidth = 1) +
-  geom_line(data = grid,
-            aes(y = fit_log_inv,
-                colour = "Inverse-log"),
-            linewidth = 1,
-            linetype = "22") +
+            linewidth = 0.9) +
+  # geom_line(data = grid,
+  #           aes(y = fit_log_inv,
+  #               colour = "Inverse-log"),
+  #           linewidth = 0.9,
+  #           linetype = "22") +
   labs(
     x = expression(kappa/phi),
     y = "Mean detection delay",
+    title = "v = 2, \u03b5 = 0.1",
     colour = NULL
   ) +
   scale_colour_manual(
     values = c(
-      "Observed"       = "black",
-      "Inverse-square" = "#1f78b4",
-      "Inverse-log"    = "#b15928"
+      "Inverse-square" = "#2C7BB6",
+      "Inverse-log"    = "#D95F02"
     )
   ) +
-  theme_minimal(base_size = 14) +
+  theme_bw(base_size = 14) +
   theme(
-    panel.grid.major = element_line(colour = "grey85", linewidth = 0.4),
-    panel.grid.minor = element_line(colour = "grey93", linewidth = 0.2),
-    panel.grid.minor.x = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
     legend.position = "top",
-    legend.box = "horizontal",
-    plot.title = element_text(face = "bold")
+    legend.key.width = unit(1.5, "cm"),
+    legend.spacing.x = unit(0.6, "cm"),
+    plot.title = element_text(face = "bold", hjust = 0.5)
   )
 
+ggsave(
+  filename = "data/presentation illustrations/v2e10_R2R3plot.jpg",
+  plot = last_plot(),         # Saves the last ggplot you displayed
+  device = agg_png,           # This is the magic part
+  width = 5.43,
+  height = 3.92,
+  units = "in",
+  res = 300                   # High resolution for publication
+)
+
+# R3-R4 plot
+# log-log
+long_data <- data1 %>%
+  filter(snr >=0.23)%>%
+  filter(snr <=1)%>%
+  filter(stoppingT > 600)
+
+result <- long_data %>%
+  group_by(snr) %>%
+  summarise(meanT = mean(stoppingT), sdT=sd(stoppingT))
+
+result$meanT<-result$meanT-600
+
+mod1<-lm(meanT~I(snr^(-2))+0, data=result[result$snr<=0.4,], weights = 1/sdT)
+mod2<-lm(meanT~I(snr^(-1))+0, data=result[result$snr>=0.6,], weights = 1/sdT)
+
+# mod2<-lm(meanT~I((log(snr*4.582576*4))^(-1))+0, data=result, weights = 1/sdT)
+# mod2<-lm(meanT~I((log(snr*6))^(-1))+0, data=result[result$snr>=0.2,])
+# summary(mod2)
 
 # prediction grid
 grid <- data.frame(
   snr = seq(min(result$snr[result$snr > 0]),
             max(result$snr),
-            length.out = 400)
-)
+            length.out = 10000))
 
-grid$fit_inv_sq  <- predict(mod,  newdata = grid)
-grid$fit_log_inv <- predict(mod2, newdata = grid)
+grid$fit_log_inv <- predict(mod1, newdata = grid)
 
 ggplot(result, aes(x = snr, y = meanT)) +
-  geom_point(aes(colour = "Observed"),
-             size = 2.5) +
-  geom_line(data = grid,
-            aes(y = fit_inv_sq,
-                colour = "Inverse-square"),
-            linewidth = 1) +
+  geom_point(size = 1.6, colour = "black")+
   geom_line(data = grid,
             aes(y = fit_log_inv,
                 colour = "Inverse-log"),
@@ -193,17 +225,15 @@ ggplot(result, aes(x = snr, y = meanT)) +
     x = expression(kappa/phi),
     y = "Mean detection delay",
     colour = NULL,
-    title = "Log–log comparison of scaling models"
+    title = "v=2, \u03b5=0.1"
   ) +
   scale_colour_manual(
     values = c(
-      "Observed"       = "black",
-      "Inverse-square" = "#0072B2",
       "Inverse-log"    = "#D55E00"
     )
   ) +
   theme_classic(base_size = 14) +
   theme(
     legend.position = "top",
-    plot.title = element_text(face = "bold")
+    plot.title = element_text(face = "bold", hjust = 0.5)
   )

@@ -38,7 +38,7 @@ end
 
 # --- Contaminated laplace sampler -----------------------------------
 function contaminated_laplace(n, mu=0.0; epsilon=0.0)
-    samples = rand(Laplace(mu, 1), n)
+    samples = rand(Laplace(mu, 3.24037), n)  #Match the v=2 case with df=2.1
     contam_mask = rand(Bernoulli(epsilon), n)
     
     # Replace only those indices with high-variance noise

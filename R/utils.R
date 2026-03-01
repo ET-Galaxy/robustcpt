@@ -40,11 +40,11 @@ rume<-function(X,epsilon=0,delta=0.05){
     stop("Not enough sample size to achieve required confidence level.")
   }
   candidates<-c()
-  for (i in 1:(n-datapts)){
-    candidates[i]<-X1[i+datapts]-X1[i]
+  for (i in 1:(n-datapts+1)){
+    candidates[i]<-X1[i+datapts-1]-X1[i]
   }
   min_index<-which.min(candidates)
-  interval<-c(X1[min_index], X1[min_index+datapts])
+  interval<-c(X1[min_index], X1[min_index+datapts-1])
 
   # Find mean in X2
   filtered_X2<-X2[X2<=interval[2] & X2>=interval[1]]  # Could be empty?
