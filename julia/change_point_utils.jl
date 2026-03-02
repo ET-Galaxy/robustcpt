@@ -44,7 +44,7 @@ function contaminated_laplace(n, mu=0.0; epsilon=0.0)
     # Replace only those indices with high-variance noise
     for i in 1:n
         if contam_mask[i]
-            samples[i] = abs(rand(Normal(0, 100))) # The "outlier" distribution
+            samples[i] = rand(Normal(0, 100)) # The "outlier" distribution
         end
     end
     
@@ -86,6 +86,8 @@ function rumedian_theta(online_data::Vector{Float64}, sigma; theta=1, epsilon=0.
                 if conf>0
                     diff_median = abs(median(online_data[(t-s+1):t]) - median(online_data[1:s]))
                     chi = 2*sigma*C2*(log(2/conf))^(1/theta)
+                    print(chi)
+                    println(',')
                     if diff_median > chi
                         return Dict("method" => "median", "subsample" => s, "location" => t)
                     end
@@ -119,6 +121,8 @@ function rumedian_v(online_data::Vector{Float64}, sigma; v=2, epsilon=0.0, alpha
                 if conf>0
                     diff_median = abs(median(online_data[(t-s+1):t]) - median(online_data[1:s]))
                     chi = 2*sigma*C2*(conf^(-1/v))
+                    print(chi)
+                    println(',')
                     if diff_median > chi
                         return Dict("method" => "median", "subsample" => s, "location" => t)
                     end
