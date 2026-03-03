@@ -3,12 +3,9 @@ using Random, Distributions, Statistics
 # --- Robust Univariate Mean Estimator ---------------------------------------
 function rume(X::Vector{Float64}; epsilon=0.0, delta=0.05)
     n_total = length(X)
-    if n_total % 2 != 0
-        error("X must be of even length.")
-    end
     n = n_total ÷ 2
     X1 = sort(X[1:n])
-    X2 = X[n+1:end]
+    X2 = X[end-n+1:end]
 
     vareps = max(epsilon, log(1/delta)/n)
     prop=2*vareps + 2*sqrt(vareps*log(1/delta)/n) + log(1/delta)/n
@@ -73,7 +70,7 @@ function rumedian_theta(online_data::Vector{Float64}, sigma; theta=1, epsilon=0.
         delta_t = (8*alpha)/(3*t^3 - 3*t)
         h_t = ceil(Int, 20*log(1/delta_t))
         for s in 1:floor(Int, t/2)
-            if iseven(s) && s >= h_t
+            if s >= h_t
                 vareps = max(epsilon, 2*log(1/delta_t)/s)
                 diff_rume = abs(rume(online_data[(t-s+1):t]; epsilon=epsilon) -
                                 rume(online_data[1:s]; epsilon=epsilon))
@@ -86,8 +83,6 @@ function rumedian_theta(online_data::Vector{Float64}, sigma; theta=1, epsilon=0.
                 if conf>0
                     diff_median = abs(median(online_data[(t-s+1):t]) - median(online_data[1:s]))
                     chi = 2*sigma*C2*(log(2/conf))^(1/theta)
-                    print(chi)
-                    println(',')
                     if diff_median > chi
                         return Dict("method" => "median", "subsample" => s, "location" => t)
                     end
@@ -108,7 +103,7 @@ function rumedian_v(online_data::Vector{Float64}, sigma; v=2, epsilon=0.0, alpha
         delta_t = (8*alpha)/(3*t^3 - 3*t)
         h_t = ceil(Int, 20*log(1/delta_t))
         for s in 1:floor(Int, t/2)
-            if iseven(s) && s >= h_t
+            if s >= h_t
                 vareps = max(epsilon, 2*log(1/delta_t)/s)
                 diff_rume = abs(rume(online_data[(t-s+1):t]; epsilon=epsilon) -
                                 rume(online_data[1:s]; epsilon=epsilon))
@@ -121,8 +116,6 @@ function rumedian_v(online_data::Vector{Float64}, sigma; v=2, epsilon=0.0, alpha
                 if conf>0
                     diff_median = abs(median(online_data[(t-s+1):t]) - median(online_data[1:s]))
                     chi = 2*sigma*C2*(conf^(-1/v))
-                    print(chi)
-                    println(',')
                     if diff_median > chi
                         return Dict("method" => "median", "subsample" => s, "location" => t)
                     end

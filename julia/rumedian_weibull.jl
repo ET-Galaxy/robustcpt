@@ -3,34 +3,34 @@ include("change_point_utils.jl")
 
 # ==== Weibull ====
 epsilon = 0.1
-sigma = 1
+sigma = sqrt(21)
 theta = 1
 alpha = 0.2
-n = 2400
-C1=0.53 # RUME constant
-C2=0.075 # median constant
+n = 600
+C1=0.396 # RUME constant
+C2=0.048 # median constant
 #eps=0.1: C1=0.53, C2=0.075 for theta=1
 mechanism_df = (n, mu=0.0) -> contaminated_laplace(n, mu; epsilon=epsilon)
 
-detected = String[]
-for i in 1:100
-    online_data = change_point_model(n; mechanism=mechanism_df, cpt=nothing)
-    result = rumedian_theta(online_data, sigma; theta=theta, epsilon=epsilon, alpha=alpha, C1=C1, C2=C2)   
-    push!(detected, result["method"])
-end
-println(countmap(detected))
-
-# reps = 200
-# kappa_sizes = 0 # sigma*(0)
-# locations = zeros(length(kappa_sizes), reps)
-# for k in 1:length(kappa_sizes)
-#     for i in 1:reps
-#         online_data = change_point_model(n; mechanism=mechanism_df, cpt=600, kappa=kappa_sizes[k])
-#         result = rumedian_theta(online_data, sigma; theta=theta, epsilon=epsilon, alpha=alpha, C1=C1, C2=C2)
-#         locations[k,i]=result["location"]
-#     end
+# detected = String[]
+# for i in 1:100
+#     online_data = change_point_model(n; mechanism=mechanism_df, cpt=nothing)
+#     result = rumedian_theta(online_data, sigma; theta=theta, epsilon=epsilon, alpha=alpha, C1=C1, C2=C2)   
+#     push!(detected, result["method"])
 # end
-# println(locations)
+# println(countmap(detected))
+
+reps = 1
+kappa_sizes = 0 
+locations = zeros(length(kappa_sizes), reps)
+for k in 1:length(kappa_sizes)
+    for i in 1:reps
+        online_data = change_point_model(n; mechanism=mechanism_df, cpt=600, kappa=kappa_sizes[k])
+        result = rumedian_theta(online_data, sigma; theta=theta, epsilon=epsilon, alpha=alpha, C1=C1, C2=C2)
+        locations[k,i]=result["location"]
+    end
+end
+println(locations)
 # writedlm("locations_v2e10new3.csv", locations, ',')
 
 # c2=0.021

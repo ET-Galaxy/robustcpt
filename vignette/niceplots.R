@@ -17,13 +17,13 @@ get_proportions <- function(x) {
 data1 <- read.csv("data/Latest_format/locations_th1e10all.csv")
 
 # ==== Data treatment ====
-data2 <- read.csv("data/Latest_format/rawdata/locations_th1e10_R2R3more.csv", header = FALSE)
+data2 <- read.csv("data/Latest_format/rawdata/locations_th1e10_R1R2.csv", header = FALSE)
 # data2 <- read.csv("data/Latest_format/rawdata/locations_v2e10_R3R4.csv", header = FALSE)
 data_bars<-data2
 data_bars[data_bars == -1] <- 2401
 
 detected_long <- data_bars %>%
-  mutate(snr = seq(from = 0.61, to = 1, by = 0.01)) %>%
+  mutate(snr = seq(from = 0, to = 0.1, by = 0.005)) %>%
   pivot_longer(-snr, values_to = "stoppingT")
 colnames(detected_long)[2]<-"trial"
 
@@ -38,7 +38,7 @@ write.csv(total,"data/Latest_format/locations_th1e10all.csv", row.names = FALSE)
 # ==== Proportion plot ====
 # Group by snr and compute proportions
 props <- data1 %>%
-  filter(snr<=0.25) %>%
+  filter(snr<=0.1) %>%
   group_by(snr) %>%
   reframe(
     tibble::as_tibble_row(get_proportions(stoppingT))
@@ -115,7 +115,8 @@ ggplot(detected_long, aes(x = snr, y = stoppingT-600)) +
 
 # ====== Mean plot =====
 detected_long <- data1 %>%
-  filter(snr >=0.22)%>%
+  filter(snr >=0.08)%>%
+  filter(snr <=0.5)%>%
   filter(stoppingT > 600)
 
 result <- detected_long %>%
@@ -147,11 +148,11 @@ ggplot(result, aes(x = snr, y = meanT)) +
             aes(y = fit_inv_sq,
                 colour = "Inverse-square"),
             linewidth = 0.9) +
-  # geom_line(data = grid,
-  #           aes(y = fit_log_inv,
-  #               colour = "Inverse-log"),
-  #           linewidth = 0.9,
-  #           linetype = "22") +
+  geom_line(data = grid,
+            aes(y = fit_log_inv,
+                colour = "Inverse-log"),
+            linewidth = 0.9,
+            linetype = "22") +
   labs(
     x = expression(kappa/phi),
     y = "Mean detection delay",
@@ -187,8 +188,7 @@ ggsave(
 # R3-R4 plot
 # log-log
 long_data <- data1 %>%
-  filter(snr >=0.23)%>%
-  filter(snr <=1)%>%
+  filter(snr >=0.5)%>%
   filter(stoppingT > 600)
 
 result <- long_data %>%
@@ -214,11 +214,11 @@ grid$fit_log_inv <- predict(mod1, newdata = grid)
 
 ggplot(result, aes(x = snr, y = meanT)) +
   geom_point(size = 1.6, colour = "black")+
-  geom_line(data = grid,
-            aes(y = fit_log_inv,
-                colour = "Inverse-log"),
-            linewidth = 1,
-            linetype = "dashed") +
+  # geom_line(data = grid,
+  #           aes(y = fit_log_inv,
+  #               colour = "Inverse-log"),
+  #           linewidth = 1,
+  #           linetype = "dashed") +
   scale_x_log10() +
   scale_y_log10() +
   labs(
@@ -227,11 +227,11 @@ ggplot(result, aes(x = snr, y = meanT)) +
     colour = NULL,
     title = "v=2, \u03b5=0.1"
   ) +
-  scale_colour_manual(
-    values = c(
-      "Inverse-log"    = "#D55E00"
-    )
-  ) +
+  # scale_colour_manual(
+  #   values = c(
+  #     "Inverse-log"    = "#D55E00"
+  #   )
+  # ) +
   theme_classic(base_size = 14) +
   theme(
     legend.position = "top",

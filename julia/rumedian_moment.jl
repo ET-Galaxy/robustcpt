@@ -17,7 +17,7 @@ df = 2.1
 v = 2
 sigma = sigma_t(df,v)
 alpha = 0.2
-n = 2400
+n = 600
 C1=0.21 # RUME constant
 C2=0.013 # median constant
 #eps=0: C1=0.22, C2=0.04 for df=2.1; C1=0.195, C2=0.11 for df=4.1; C1=0.17, C2=0.14 for df=6.1
@@ -34,7 +34,7 @@ mechanism_df = (n, mu=0.0) -> contaminated_sample_t(n, mu; df=df, epsilon=epsilo
 # println(countmap(detected))
 # writedlm("t1e_v2e10.csv", countmap(detected), ',')
 
-reps = 200
+reps = 1
 kappa_sizes = 0 # sigma*(0)
 locations = zeros(length(kappa_sizes), reps)
 for k in 1:length(kappa_sizes)
@@ -45,7 +45,7 @@ for k in 1:length(kappa_sizes)
     end
 end
 println(locations)
-writedlm("locations_v2e10new3.csv", locations, ',')
+# writedlm("locations_v2e10new3.csv", locations, ',')
 
 # c2=0.021
 # done=false
