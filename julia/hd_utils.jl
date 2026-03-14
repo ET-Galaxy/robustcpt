@@ -182,13 +182,13 @@ function rt_hd(n, p=1, df=3.0; sd=nothing, mu=zeros(p))
     return samples .+ mu'
 end
 
-function rlaplace_hd(n, p=1, s=1/sqrt(2); mu=zeros(p))
+function rlaplace_hd(n, p, s=1/sqrt(2); mu=zeros(p))
     d = Laplace(0, s)
     samples = rand(d, n, p)
     return samples .+ mu'
 end
 
-function rlaplace_hd_cpt(n, p=1, epsilon; cpt=800, mu_norm=2)
+function rlaplace_hd_cpt(n, p, epsilon; cpt=800, mu_norm=2)
     # 1. Define Mean Vectors
     mu_null = zeros(p)
     mu_alt = fill(mu_norm/ sqrt(p), p) 

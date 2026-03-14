@@ -1,4 +1,5 @@
-using Distributed, DataFrames, CSV
+using Distributed, DataFrames
+include("hd_utils.jl")
 
 # Parameters
 p_seq = 5
