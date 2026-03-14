@@ -95,7 +95,7 @@ rowsum_filter <- function(Y, w, u) {
 RobustMeanTest <- function(Y, kappa0,
                            delta,
                            epsilon,
-                           C_gamma = 1) {
+                           C_gamma = 1, finite_moment=FALSE) {
 
   # Y: n x p matrix
   Y <- as.matrix(Y)
@@ -106,7 +106,11 @@ RobustMeanTest <- function(Y, kappa0,
     stop("Require n >= p")
   }
   # contamination fraction u
-  u <- epsilon + 1/n+sqrt(log(1/delta)/(2*n))
+  u <- if (finite_moment){
+    epsilon + min(1/20, p/(20*n))+sqrt(log(1/delta)/(2*n))
+  } else {
+    epsilon + 1/n+sqrt(log(1/delta)/(2*n))
+  }
   if (u>0.1){
     stop("n is too small. u needs to be less than 0.1")
   }
@@ -127,7 +131,7 @@ RobustMeanTest <- function(Y, kappa0,
 
   test_stat <- abs(sum(Sum_wS^2) - p * sum(w_prime))
 
-  if (test_stat >= 0.1 * kappa0^2 * n^2) {
+  if (test_stat >= 0.02 * kappa0^2 * n^2) {
     return(TRUE)
   } else {
     return(FALSE)
@@ -149,14 +153,14 @@ RobustMeanTest <- function(Y, kappa0,
 #' @returns Samples from a t-distribution contaminated with normal
 #'
 #' @export
-rt_hd<-function(n,p=1,df=3,epsilon=0,mu=rep(0,p)){
+rt_hd<-function(n,p=1,df=3,sd=sqrt(df/(df-2)),mu=rep(0,p)){
   all_indices<-1:n
   mean_matrix<-t(matrix(mu, nrow=p, ncol=n))
-  final_sample<-matrix(rt(n*p,df), nrow=n, ncol=p)+mean_matrix
-  contaminated_indices<-all_indices[rbinom(n,1,epsilon)==1]
-  for (i in contaminated_indices){
-    final_sample[i]<-mvrnorm(n=1, mu=rep(0,p), Sigma=diag(p))
-  }
+  final_sample<-matrix(rt(n*p,df)*sd/sqrt(df/(df-2)), nrow=n, ncol=p)+mean_matrix
+  # contaminated_indices<-all_indices[rbinom(n,1,epsilon)==1]
+  # for (i in contaminated_indices){
+  #   final_sample[i]<-mvrnorm(n=1, mu=rep(0,p), Sigma=diag(p))
+  # }
   return(final_sample)
 }
 
@@ -177,13 +181,13 @@ rt_hd<-function(n,p=1,df=3,epsilon=0,mu=rep(0,p)){
 #' @returns Samples from a t-distribution contaminated with normal
 #'
 #' @export
-rlaplace_hd<-function(n,p=1,s=1,epsilon=0,mu=rep(0,p)){
+rlaplace_hd<-function(n,p=1,s=1,mu=rep(0,p)){
   all_indices<-1:n
   mean_matrix<-t(matrix(mu, nrow=p, ncol=n))
   final_sample<-matrix(rlaplace(n*p,m=0,s), nrow=n, ncol=p)+mean_matrix
-  contaminated_indices<-all_indices[rbinom(n,1,epsilon)==1]
-  for (i in contaminated_indices){
-    final_sample[i]<-mvrnorm(n=1, mu=rep(0,p), Sigma=diag(p))
-  }
+  # contaminated_indices<-all_indices[rbinom(n,1,epsilon)==1]
+  # for (i in contaminated_indices){
+  #   final_sample[i]<-mvrnorm(n=1, mu=rep(0,p), Sigma=diag(p))
+  # }
   return(final_sample)
 }

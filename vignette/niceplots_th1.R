@@ -77,9 +77,8 @@ ggplot(props_longer,
     expand = expansion(mult = c(0, 0))
   ) +
   labs(
-    x = expression(kappa/phi),
-    y = "Empirical probability",
-    title = "\u03B8 = 1, \u03b5 = 0.1"
+    x = expression(kappa/sigma),
+    y = "Empirical probability"
   ) +
   scale_fill_manual(
     values = c(
@@ -143,22 +142,21 @@ ggplot(result, aes(x = snr, y = meanT)) +
   annotation_logticks() +
   geom_point(alpha = 0.7, size = 1.8) +
   # Using the new labels here
-  geom_line(data = grid, aes(y = fit_inv, color = "Inverse-square (slope = -2.63)"),
+  geom_line(data = grid, aes(y = fit_inv, color = "Regime 2"),
             linewidth = 1, linetype = "solid") +
-  geom_line(data = grid2, aes(y = fit_inv_sq, color = "Inversely proportional"),
-            linewidth = 1, linetype = "dashed") +
+  geom_line(data = grid2, aes(y = fit_inv_sq, color = "Regime 3"),
+            linewidth = 1, linetype = "solid") +
   scale_x_log10() +
   scale_y_log10() +
   labs(
-    x = expression(kappa/phi),
+    x = expression(kappa/sigma),
     y = "Mean detection delay",
-    title = "\u03B8 = 1, \u03b5 = 0.1",
     color = NULL
   ) +
   scale_color_manual(
     values = c(
-      "Inverse-square (slope = -2.63)" = "pink",
-      "Inversely proportional" = "#2C7BB6"
+      "Regime 2" = "pink",
+      "Regime 3" = "#2C7BB6"
     )
   ) +
   theme(
@@ -185,11 +183,11 @@ result$meanT<-result$meanT-600
 
 #mod1<-lm(meanT~I(snr^(-2.63))+0, data=result[result$snr<=0.46,], weights = 1/sdT)
 mod2<-lm(meanT~I(snr^(-1))+0, data=result[result$snr<=1.2,], weights = 1/sdT)
-mod3<-lm(meanT~1, data=result[result$snr>=2,])
+mod3<-lm(meanT~1, data=result[result$snr>=3,])
 
 # prediction grid
 grid <- data.frame(snr = seq(0.5,1,length.out = 10000))
-grid2 <- data.frame(snr = seq(2,100000,length.out = 1000))
+grid2 <- data.frame(snr = seq(3,100000,length.out = 1000))
 
 grid$fit_inv <- predict(mod2, newdata = grid)
 grid2$fit_inv_sq <- predict(mod3, newdata = grid2)
@@ -199,24 +197,23 @@ ggplot(result, aes(x = snr, y = meanT)) +
   annotation_logticks() +
   geom_point(alpha = 0.7, size = 1.8) +
   # Using the new labels here
-  geom_line(data = grid, aes(y = fit_inv, color = "Inversely proportional"),
+  geom_line(data = grid, aes(y = fit_inv, color = "Regime 3"),
             linewidth = 1, linetype = "solid") +
-  geom_line(data = grid2, aes(y = fit_inv_sq, color = "Constant"),
-            linewidth = 1, linetype = "dashed") +
+  geom_line(data = grid2, aes(y = fit_inv_sq, color = "Regime 4"),
+            linewidth = 1, linetype = "solid") +
   scale_x_log10(breaks = 10^(0:5)) +
   scale_y_log10(limits = c(20, 75)) +
   labs(
-    x = expression(kappa/phi),
+    x = expression(kappa/sigma),
     y = "Mean detection delay",
-    title = "\u03B8 = 1, \u03b5 = 0.1",
     color = NULL
   ) +
   scale_color_manual(
     # BREAKS controls the order in the legend
-    breaks = c("Inversely proportional", "Constant"),
+    breaks = c("Regime 3", "Regime 4"),
     values = c(
-      "Inversely proportional" = "#2C7BB6",
-      "Constant" = "#D55E00"
+      "Regime 3" = "#2C7BB6",
+      "Regime 4" = "#D55E00"
     )
   ) +
   theme(

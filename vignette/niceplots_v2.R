@@ -76,9 +76,8 @@ ggplot(props_longer,
     expand = expansion(mult = c(0, 0))
   ) +
   labs(
-    x = expression(kappa/phi),
-    y = "Empirical probability",
-    title = "v = 2, \u03b5 = 0.1"
+    x = expression(kappa/sigma),
+    y = "Empirical probability"
   ) +
   scale_fill_manual(
     values = c(
@@ -144,25 +143,24 @@ ggplot(result, aes(x = snr, y = meanT)) +
   geom_point(size = 1.6, colour = "black") +
   geom_line(data = grid,
             aes(y = fit_inv_sq,
-                colour = "Inverse-square"),
+                colour = "Regime 2"),
             linewidth = 0.9) +
   geom_line(data = grid2,
             aes(y = fit_log_inv,
-                colour = "Inverse-log"),
+                colour = "Regime 3"),
             linewidth = 0.9) +
   scale_x_continuous(
     breaks = seq(0.1, 0.7, by = 0.1))+
   labs(
-    x = expression(kappa/phi),
+    x = expression(kappa/sigma),
     y = "Mean detection delay",
-    title = "v = 2, \u03b5 = 0.1",
     colour = NULL
   ) +
   scale_colour_manual(
-    breaks = c("Inverse-square", "Inverse-log"),
+    breaks = c("Regime 2", "Regime 3"),
     values = c(
-      "Inverse-square" = "#2C7BB6",
-      "Inverse-log"    = "#D95F02"
+      "Regime 2" = "pink",
+      "Regime 3" = "#2C7BB6"
     )
   ) +
   theme_bw(base_size = 14) +
@@ -171,19 +169,8 @@ ggplot(result, aes(x = snr, y = meanT)) +
     panel.grid.minor = element_blank(),
     legend.position = "top",
     legend.key.width = unit(1.5, "cm"),
-    legend.spacing.x = unit(0.6, "cm"),
-    plot.title = element_text(hjust = 0.5)
+    legend.spacing.x = unit(0.6, "cm")
   )
-
-ggsave(
-  filename = "data/presentation illustrations/v2e10_R2R3plot.jpg",
-  plot = last_plot(),         # Saves the last ggplot you displayed
-  device = agg_png,           # This is the magic part
-  width = 5.43,
-  height = 3.92,
-  units = "in",
-  res = 300                   # High resolution for publication
-)
 
 # R3-R4 plot
 # log-log
@@ -212,21 +199,20 @@ ggplot(result, aes(x = snr, y = meanT)) +
   theme_bw(base_size = 14) +
   annotation_logticks(sides = "b")+
   geom_point(alpha = 0.7, size = 1.8) +
-  geom_line(data = grid, aes(y = fit_inv, color = "Inverse (slope = -1)"), #Power-law (slope = -2.63)
+  geom_line(data = grid, aes(y = fit_inv, color = "Regime 3"), #Power-law (slope = -2.63)
             linewidth = 1, linetype = "solid") +
-  geom_line(data = grid2, aes(y = fit_inv_sq, color = "Constant"), #Inverse (slope = -1)
-            linewidth = 1, linetype = "dashed") +
+  geom_line(data = grid2, aes(y = fit_inv_sq, color = "Regime 4"), #Inverse (slope = -1)
+            linewidth = 1, linetype = "solid") +
   scale_x_log10(breaks=10^seq(0,5)) +
   labs(
-    x = expression(kappa/phi),
+    x = expression(kappa/sigma),
     y = "Mean detection delay",
-    title = "v = 2, \u03b5 = 0.1",,
     color = NULL
   ) +
   scale_color_manual(
     values = c(
-      "Inverse (slope = -1)" = "#2C7BB6",
-      "Constant" = "#D55E00"
+      "Regime 3" = "#2C7BB6",
+      "Regime 4" = "#D55E00"
     )
   ) +
   theme(
@@ -234,6 +220,5 @@ ggplot(result, aes(x = snr, y = meanT)) +
     panel.grid.minor = element_blank(),
     legend.position = "top",
     legend.key.width = unit(1.5, "cm"),
-    legend.spacing.x = unit(0.6, "cm"),
-    plot.title = element_text(face = "bold", hjust = 0.5)
+    legend.spacing.x = unit(0.6, "cm")
   )

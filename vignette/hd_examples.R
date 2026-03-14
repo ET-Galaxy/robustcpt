@@ -1,96 +1,103 @@
 library(MASS)
 library(ggplot2)
 library(dplyr)
+library(tidyr)
+library(robustcpt)
 
 # ==== 1. Laplace distribution ====
-p<-5
+p<-10
 delta=0.1
-epsilon=0.05
-C_gamma<-0.1
-iterations<-100
+epsilon=0.04
+iterations<-1000
 ## ===== 1.1 Illustrate effect of misspecification ====
 mu1<-1
-n<-1000
-kappa_seq <- seq(0.1, 3.0, by = 0.1)
-error_rates<-numeric(length(kappa_seq))
-powers <- numeric(length(kappa_seq))
-for (j in seq_along(kappa_seq)) {
-  current_kappa <- kappa_seq[j]
-  rejections <- 0
+n<-500
+C_gamma_seq<-c(0.05, 0.1,0.3,0.5)
+kappa_seq <- seq(0.1, 3.5, by = 0.1)
+results <- expand.grid(C_gamma = C_gamma_seq, kappa0 = kappa_seq) %>%
+  mutate(error_rate = 0, power = 0)
 
-  for (i in 1:iterations) {
-    # Generate Corrupted Data
-    corrupt_index <- rbinom(1, n, prob = epsilon)
-    corrupt_data <- mvrnorm(n = corrupt_index, mu = rep(-1, p), Sigma = diag(p))
+for (i in 1:nrow(results)) {
+  curr_C <- results$C_gamma[i]
+  curr_K <- results$kappa0[i]
 
-    # Generate Clean Data
-    clean <- rlaplace_hd(n = n - corrupt_index, s=1, p = p, mu = rep(0, p))
+  rej_null <- 0
+  rej_alt  <- 0
 
-    # Combine
+  for (m in 1:iterations) {
+    # 1. Null Hypothesis (mu = 0)
+    n_corrupt <- rbinom(1, n, prob = epsilon)
+    corrupt_data <- mvrnorm(n = n_corrupt, mu = rep(-1, p), Sigma = diag(p))
+    clean <- rlaplace_hd(n = n - n_corrupt, s = 1/sqrt(2), p = p, mu = rep(0, p))
     Y <- rbind(clean, corrupt_data)
+    if(RobustMeanTest(Y, kappa0 = curr_K, delta = delta, epsilon = epsilon, C_gamma = curr_C)) {
+      rej_null <- rej_null + 1
+    }
 
-    # Run the test: RobustMeanTest returns TRUE for rejection
-    res <- RobustMeanTest(Y, kappa0 = current_kappa, delta = delta,
-                          epsilon = epsilon, C_gamma = C_gamma)
-
-    if (res) {
-      rejections <- rejections + 1
+    # 2. Alternative Hypothesis (mu = mu1/sqrt(p))
+    n_corrupt <- rbinom(1, n, prob = epsilon)
+    corrupt_data <- mvrnorm(n = n_corrupt, mu = rep(-1, p), Sigma = diag(p))
+    clean <- rlaplace_hd(n = n - n_corrupt, s = 1/sqrt(2), p = p, mu = rep(mu1/sqrt(p), p))
+    Y <- rbind(clean, corrupt_data)
+    if(RobustMeanTest(Y, kappa0 = curr_K, delta = delta, epsilon = epsilon, C_gamma = curr_C)) {
+      rej_alt <- rej_alt + 1
     }
   }
-  # Calculate proportion of rejections
-  error_rates[j] <- rejections / iterations
+
+  results$error_rate[i] <- rej_null / iterations
+  results$power[i]      <- rej_alt / iterations
 }
-
-for (j in seq_along(kappa_seq)) {
-  current_kappa <- kappa_seq[j]
-  rejections <- 0
-
-  for (i in 1:iterations) {
-    # Generate Corrupted Data
-    corrupt_index <- rbinom(1, n, prob = epsilon)
-    corrupt_data <- mvrnorm(n = corrupt_index, mu = rep(-1, p), Sigma = diag(p))
-
-    # Generate Clean Data
-    clean <- rlaplace_hd(n = n - corrupt_index, s=1, p = p, mu = rep(mu1/sqrt(p), p))
-
-    # Combine
-    Y <- rbind(clean, corrupt_data)
-
-    # Run the test: RobustMeanTest returns TRUE for rejection
-    res <- RobustMeanTest(Y, kappa0 = current_kappa, delta = delta,
-                          epsilon = epsilon, C_gamma = C_gamma)
-
-    if (res) {
-      rejections <- rejections + 1
-    }
-  }
-  # Calculate proportion of rejections
-  powers[j] <- rejections / iterations
-}
-
-
-plot_df<- data.frame(kappa0 = kappa_seq, error_rate=error_rates, power= powers)
+#plot_df<-read.csv("data/Latest_format/hd_misspec_p100.csv")
+#results<-rbind(plot_df,results)
+#write.csv(results,"data/Latest_format/hd_misspec_p100.csv", row.names = FALSE)
 
 # For fixed n, fixed mu, vary kappa0 to see the effect of misspecification
-# REMOVE "COLOUR" FROM LEGEND
-ggplot() +
-  geom_line(data = plot_df, aes(x = kappa0, y = error_rate, color = "Type I Error"), size = 1) +
-  geom_line(data = plot_df, aes(x = kappa0, y = power, color = "Power"), size = 1) +
+# Professional Color Palette
+
+# 1. Transform data for plotting
+# This creates a 'Metric' column (Type I Error vs Power)
+# and a 'Value' column (the actual rates)
+plot_df_long <- results %>%
+  pivot_longer(
+    cols = c(error_rate, power),
+    names_to = "Metric",
+    values_to = "Rate"
+  ) %>%
+  mutate(
+    # Clean up names for the legend
+    Metric = ifelse(Metric == "error_rate", "Type I Error", "Power"),
+    C_gamma_fact = factor(C_gamma)
+  )
+
+# 2. Create the plot
+ggplot(plot_df_long, aes(x = kappa0, y = Rate, color = C_gamma_fact, linetype = Metric)) +
+  geom_line(size = 1.1) +
+  # Add a horizontal line for the nominal alpha/delta level
+  geom_hline(yintercept = 0.9, linetype = "dashed", color = "blue", size = 0.8) +
   geom_hline(yintercept = 0.1, linetype = "dashed", color = "red", size = 0.8) +
-  geom_vline(xintercept = mu1, linetype = "dotted", color = "black", size = 1) +
-  geom_line(color = "steelblue", size = 1) +
-  geom_point(color = "darkblue") +
-  scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+  geom_vline(xintercept = mu1, color = "black", size = 1) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) + # Professional color palette
   labs(
-    title = "Type I Error Rate/Power vs. Kappa0 (100 iterations each)",
-    subtitle = paste("n =", n, ", p =", p, ", eps =", epsilon, ", C_gamma=", C_gamma),
-    x = expression(kappa[0]),
-    y = "Type I Error Rate/Power"
+    x = expression(Signal~size~input~(kappa[0])),
+    y = "Empirical Probability",
+    color = expression(C[gamma]),
+    linetype = "Metric"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    text = element_text(size = 14),
+    panel.grid.minor = element_blank()
+  )
+
+ggplot(plot_df_long, aes(x = kappa0, y = Rate, color = Metric)) +
+  geom_line(size = 1) +
+  facet_wrap(~C_gamma_fact, labeller = label_both) +
+  theme_bw()
 
 ## === 1.2 Sample complexity vs signal size ====
 # Define the grid ranges
+C_gamma=0.1
 n_seq <- seq(500, 3000, by = 100)      # Example values for n
 kappa_seq <- seq(0.25, 0.43, by = 0.005)
 iterations <- 1000
@@ -151,61 +158,33 @@ for (idx in 1:nrow(heatmap_data)) {
 }
 
 # --- Plotting ---
-# # heatmap for type I error
-# ggplot(heatmap_data, aes(x = factor(n), y = kappa0, fill = error_rate)) +
-#   geom_tile() +
-#   # Add text labels inside tiles if the grid is small enough
-#   geom_text(aes(label = round(error_rate2, 2)), size = 3, color = "white") +
-#   # Color scale: high error (Yellow/Purple) vs low error (Dark)
-#   scale_fill_viridis_c(option = "magma", labels = scales::percent) +
-#   labs(
-#     title = "Type I Error Rate Heatmap",
-#     subtitle = "Variation across sample size (n) and Kappa0",
-#     x = "Sample Size (n)",
-#     y = expression(kappa[0]),
-#     fill = "Error Rate"
-#   ) +
-#   theme_minimal()
-#
-# # heatmap for type II error
-# ggplot(heatmap_data, aes(x = factor(n), y = kappa0, fill = error_rate2)) +
-#   geom_tile() +
-#   # Add text labels inside tiles if the grid is small enough
-#   geom_text(aes(label = round(error_rate2, 2)), size = 3, color = "white") +
-#   # Color scale: high error (Yellow/Purple) vs low error (Dark)
-#   scale_fill_viridis_c(option = "magma", labels = scales::percent) +
-#   labs(
-#     title = "Type II Error Rate Heatmap",
-#     subtitle = "Variation across sample size (n) and Kappa0",
-#     x = "Sample Size (n)",
-#     y = expression(kappa[0]),
-#     fill = "Error Rate"
-#   ) +
-#   theme_minimal()
+heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/th1e5p100.csv")
 
 # Heatmap for when both error guarantees are satisfied.
 heatmap_data <- heatmap_data %>%
   mutate(region = case_when(
-    error_rate <= 0.1  & error_rate2 <= 0.1  ~ "Errors controlled",
-    error_rate > 0.1 | error_rate2 > 0.1  ~ "Errors not controlled"
+    type1_error <= 0.1  & type2_error <= 0.1  ~ "Reliably Detectable",
+    type1_error > 0.1 | type2_error > 0.1  ~ "Not Reliably Detectable"
   ))
 
 region_colors <- c(
-  "Errors controlled" = "#3498db", # Blue
-  "Errors not controlled"   = "#e74c3c"  # Alizarin Red
+  "Reliably Detectable" = "#3498db", # Blue
+  "Not Reliably Detectable"   = "#e74c3c"  # Alizarin Red
 )
 
 ggplot(heatmap_data, aes(x = factor(n), y = kappa0, fill = region)) +
   geom_tile(color = "white", size = 0.2) +
   scale_fill_manual(values = region_colors) +
+  scale_x_discrete(breaks = seq(500, 3000, by = 500)) +
   labs(
-    title = "Error Rate Thresholds",
-    x = "Sample Size (n)",
+    x = "n",
     y = expression(kappa[0]),
-    fill = "Regions"
+    fill = NULL
   ) +
   theme_minimal() +
-  theme(legend.position = "right")
+  theme(
+    legend.position = "top"
+  )
 
 # Sample complexity plot of algorithm
 # 1. Calculate the minimum kappa0 for the 'green' condition for each n
@@ -246,23 +225,16 @@ ggplot(boundary_df, aes(x = n, y = min_kappa0)) +
   theme_minimal()
 
 # ==== 2. t-distribution ====
-n<-1000
-p<-4
-delta=0.1
-epsilon=0.05
-res<-c()
-for (i in 1:100){
-  corrupt_index<-rbinom(1,n,prob=epsilon)
-  corrupt_data<-contaminated_sample_t_hd(n=corrupt_index, p=p, mu=rep(0,p))
-  clean<-contaminated_sample_t_hd(n=n-corrupt_index, p=p, mu=rep(0,p))
-  Y<-rbind(clean,corrupt_data)
-  res[i]<-RobustMeanTest(Y,kappa0=0.3, delta=delta,epsilon=epsilon,C_gamma = 1)
-}
-summary(factor(res))
-
+df<-2.1
+p<-100
+delta<-0.1
+epsilon<-0.05
+C_gamma<-0.1
+iterations<-1000
+## ===== 2.1 Illustrate effect of misspecification ====
 mu1<-1
 n<-1000
-kappa_seq <- seq(0.1, 3.0, by = 0.1)
+kappa_seq <- seq(0.1, 3.5, by = 0.1)
 error_rates<-numeric(length(kappa_seq))
 powers <- numeric(length(kappa_seq))
 for (j in seq_along(kappa_seq)) {
@@ -275,14 +247,14 @@ for (j in seq_along(kappa_seq)) {
     corrupt_data <- mvrnorm(n = corrupt_index, mu = rep(-1, p), Sigma = diag(p))
 
     # Generate Clean Data
-    clean <- rlaplace_hd(n = n - corrupt_index, s=1, p = p, mu = rep(0, p))
+    clean <- rt_hd(n = n - corrupt_index, df=df, sd=1, p = p, mu = rep(0, p))
 
     # Combine
     Y <- rbind(clean, corrupt_data)
 
     # Run the test: RobustMeanTest returns TRUE for rejection
     res <- RobustMeanTest(Y, kappa0 = current_kappa, delta = delta,
-                          epsilon = epsilon, C_gamma = C_gamma)
+                          epsilon = epsilon, C_gamma = C_gamma, finite_moment = TRUE)
 
     if (res) {
       rejections <- rejections + 1
@@ -302,14 +274,14 @@ for (j in seq_along(kappa_seq)) {
     corrupt_data <- mvrnorm(n = corrupt_index, mu = rep(-1, p), Sigma = diag(p))
 
     # Generate Clean Data
-    clean <- rlaplace_hd(n = n - corrupt_index, s=1, p = p, mu = rep(mu1/sqrt(p), p))
+    clean <- rt_hd(n = n - corrupt_index, df=2.1, sd=1, p = p, mu = rep(mu1/sqrt(p), p))
 
     # Combine
     Y <- rbind(clean, corrupt_data)
 
     # Run the test: RobustMeanTest returns TRUE for rejection
     res <- RobustMeanTest(Y, kappa0 = current_kappa, delta = delta,
-                          epsilon = epsilon, C_gamma = C_gamma)
+                          epsilon = epsilon, C_gamma = C_gamma, finite_moment = TRUE)
 
     if (res) {
       rejections <- rejections + 1
@@ -319,24 +291,36 @@ for (j in seq_along(kappa_seq)) {
   powers[j] <- rejections / iterations
 }
 
-
 plot_df<- data.frame(kappa0 = kappa_seq, error_rate=error_rates, power= powers)
+#plot_df<-read.csv("data/Latest_format/hd_misspec_p100_t.csv")
+
+write.csv(plot_df,"data/Latest_format/hd_misspec_p100_t.csv", row.names = FALSE)
 
 # For fixed n, fixed mu, vary kappa0 to see the effect of misspecification
-# REMOVE "COLOUR" FROM LEGEND
-ggplot() +
-  geom_line(data = plot_df, aes(x = kappa0, y = error_rate, color = "Type I Error"), size = 1) +
-  geom_line(data = plot_df, aes(x = kappa0, y = power, color = "Power"), size = 1) +
-  geom_hline(yintercept = 0.1, linetype = "dashed", color = "red", size = 0.8) +
-  geom_vline(xintercept = mu1, linetype = "dotted", color = "black", size = 1) +
-  geom_line(color = "steelblue", size = 1) +
-  geom_point(color = "darkblue") +
-  scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
-  labs(
-    title = "Type I Error Rate/Power vs. Kappa0 (100 iterations each)",
-    subtitle = paste("n =", n, ", p =", p, ", eps =", epsilon, ", C_gamma=", C_gamma),
-    x = expression(kappa[0]),
-    y = "Type I Error Rate/Power"
-  ) +
-  theme_minimal()
+# Professional Color Palette
 
+ggplot(plot_df, aes(x = kappa0)) +
+  geom_line(aes(y = error_rate, color = "Type I Error"), linewidth = 1) +
+  geom_line(aes(y = power, color = "Power"), linewidth = 1) +
+
+  geom_vline(xintercept = mu1, color = "black", linetype = "dashed", linewidth = 1.5) +
+  geom_hline(yintercept = delta, linetype = "dotted", color = "blue", linewidth = 1) +
+  geom_hline(yintercept = 1 - delta, linetype = "dotted", color = "red", linewidth = 1)+
+
+  # Scales
+  scale_y_continuous(limits = c(0, 1), labels = scales::percent_format()) +
+  scale_x_continuous(limits = c(0.1, 3.5)) +
+  # Labels
+  labs(
+    #title = bquote(n == .(n) ~ "," ~ p == .(p) ~ "," ~ C[gamma] == .(C_gamma)),
+    x = expression(kappa[0]),
+    y = "Empirical Probability",
+    color = NULL
+  ) +
+  # Theme Customization
+  theme_bw() +
+  theme(
+    legend.position = "top",
+    legend.text = element_text(size=13),
+    plot.title = element_text(hjust = 0.5)
+  )
