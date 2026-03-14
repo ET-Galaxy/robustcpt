@@ -131,7 +131,7 @@ RobustMeanTest <- function(Y, kappa0,
 
   test_stat <- abs(sum(Sum_wS^2) - p * sum(w_prime))
 
-  if (test_stat >= 0.02 * kappa0^2 * n^2) {
+  if (test_stat >= 0.1 * kappa0^2 * n^2) {
     return(TRUE)
   } else {
     return(FALSE)

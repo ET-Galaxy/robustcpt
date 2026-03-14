@@ -5,14 +5,14 @@ library(tidyr)
 library(robustcpt)
 
 # ==== 1. Laplace distribution ====
-p<-10
-delta=0.1
-epsilon=0.04
-iterations<-1000
+p<-5
+delta=4*0.2/(1500^2*1501)
+epsilon=0
+iterations<-100
 ## ===== 1.1 Illustrate effect of misspecification ====
 mu1<-1
-n<-500
-C_gamma_seq<-c(0.03, 0.05,0.1,0.5)
+n<-1500
+C_gamma_seq<-0.1
 kappa_seq <- seq(0.1, 3.5, by = 0.1)
 results <- expand.grid(C_gamma = C_gamma_seq, kappa0 = kappa_seq) %>%
   mutate(error_rate = 0, power = 0)
@@ -26,19 +26,29 @@ for (i in 1:nrow(results)) {
 
   for (m in 1:iterations) {
     # 1. Null Hypothesis (mu = 0)
-    n_corrupt <- rbinom(1, n, prob = epsilon)
-    corrupt_data <- mvrnorm(n = n_corrupt, mu = rep(-1, p), Sigma = diag(p))
-    clean <- rlaplace_hd(n = n - n_corrupt, s = 1/sqrt(2), p = p, mu = rep(0, p))
-    Y <- rbind(clean, corrupt_data)
+    if (epsilon>0){
+      n_corrupt <- rbinom(1, n, prob = epsilon)
+      corrupt_data <- mvrnorm(n = n_corrupt, mu = rep(-1, p), Sigma = diag(p))
+      clean <- rlaplace_hd(n = n - n_corrupt, s = 1/sqrt(2), p = p, mu = rep(0, p))
+      Y <- rbind(clean, corrupt_data)
+    } else {
+      Y <- rlaplace_hd(n = n, s = 1/sqrt(2), p = p, mu = rep(0, p))
+    }
+
     if(RobustMeanTest(Y, kappa0 = curr_K, delta = delta, epsilon = epsilon, C_gamma = curr_C)) {
       rej_null <- rej_null + 1
     }
 
     # 2. Alternative Hypothesis (mu = mu1/sqrt(p))
-    n_corrupt <- rbinom(1, n, prob = epsilon)
-    corrupt_data <- mvrnorm(n = n_corrupt, mu = rep(-1, p), Sigma = diag(p))
-    clean <- rlaplace_hd(n = n - n_corrupt, s = 1/sqrt(2), p = p, mu = rep(mu1/sqrt(p), p))
-    Y <- rbind(clean, corrupt_data)
+    if (epsilon>0){
+      n_corrupt <- rbinom(1, n, prob = epsilon)
+      corrupt_data <- mvrnorm(n = n_corrupt, mu = rep(-1, p), Sigma = diag(p))
+      clean <- rlaplace_hd(n = n - n_corrupt, s = 1/sqrt(2), p = p, mu = rep(mu1/sqrt(p), p))
+      Y <- rbind(clean, corrupt_data)
+    } else {
+      Y <- rlaplace_hd(n = n, s = 1/sqrt(2), p = p, mu = rep(mu1/sqrt(p), p))
+    }
+
     if(RobustMeanTest(Y, kappa0 = curr_K, delta = delta, epsilon = epsilon, C_gamma = curr_C)) {
       rej_alt <- rej_alt + 1
     }
