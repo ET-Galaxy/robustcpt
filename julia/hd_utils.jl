@@ -1,5 +1,61 @@
 using Random, LinearAlgebra, Statistics, Distributions
 
+"""
+    spectral_filter_smalln(Y, C_gamma, kappa0, delta)
+
+Executes Algorithm 1: Spectral filtering for n ≤ p.
+- Y: n x p matrix (n samples, p features)
+"""
+function spectral_filter_smalln(Y, gamma2)
+    n, p = size(Y)
+    
+    w = ones(n)  # Initial weights w(1) = 1
+    
+    # Pre-calculate Y'Y to save computation time inside the loop
+    YYt = Y * Y'
+    
+    while true
+        # Construct the Gram matrix G(w) where G_ij = sqrt(wi * wj) * <Yi, Yj>
+        sqrt_w = sqrt.(w)
+        # Element-wise multiplication: G_ij = sqrt_wi * sqrt_wj * (YYt)_ij
+        Gram_w = (sqrt_w .* sqrt_w') .* YYt
+        
+        # D(w) is the diagonal of the Gram matrix
+        D_w = diagm(diag(Gram_w))
+        
+        # Matrix for the operator norm check
+        M = Gram_w - D_w
+        op_norm = norm(M, 2) 
+        
+        # Termination condition: norm < 5 * gamma2
+        if op_norm < 5 * gamma2
+            break
+        end
+        
+        # Step 3: Top singular vector v
+        svd_res = svd(M)
+        v = svd_res.U[:, 1]
+        
+        # Step 4: Calculate tau_i = (vi² / wi)
+        tau = zeros(n)
+        for i in 1:n
+            if w[i] > 0
+                tau[i] = (v[i]^2) / w[i]
+            else
+                tau[i] = 0.0
+            end
+        end
+        
+        # Step 5: Update weights
+        max_tau = maximum(tau)
+        if max_tau > 0
+            w .= (1.0 .- tau ./ max_tau) .* w
+        end
+    end
+    
+    return w
+end
+
 function spectral_filter(Y, gamma2)
     n, p = size(Y)
     w = ones(n)
@@ -72,29 +128,35 @@ end
 
 Robust Mean Testing routine (Canconne et al. 2023).
 """
-function robust_mean_test(Y, kappa0, delta, epsilon; C_gamma=1.0)
+function robust_mean_test(Y, kappa0, delta, epsilon; C_gamma=1.0, fin_moment=false)
     n, p = size(Y)
-    
-    if n < p
-        throw(ArgumentError("Require n >= p"))
-    end
 
     # Contamination fraction u
-    u = epsilon + 1/n + sqrt(log(1/delta) / (2*n))
+    if fin_moment
+        u = epsilon + min(0.05, 0.05*p/n) + sqrt(log(1/delta) / (2*n))
+    else 
+        u = epsilon + 1/n + sqrt(log(1/delta) / (2*n))
+    end
     
-    if u > 0.1
+    if u > 0.09
         # Following your R logic: strict thresholding
         throw(ArgumentError("n is too small. u ($u) needs to be less than 0.1"))
     end
 
-    # Compute gamma_2
-    gamma2 = C_gamma * (
-        u * n * p * log(1/u) +
-        sqrt(n * p) * log(2 * p / delta) +
-        kappa0 * n
-    )
+    if n>p
+        # Compute gamma_2
+        gamma2 = C_gamma * (
+            u * n * p * log(1/u) +
+            sqrt(n * p) * log(2 * p / delta) +
+            kappa0 * n
+        )
 
-    w = spectral_filter(Y, gamma2)
+        w = spectral_filter(Y, gamma2)
+    else 
+        # Compute gamma_2
+        gamma2 = C_gamma * (p * log(2 * n * p / delta) + n * kappa0^2)
+        w = spectral_filter_smalln(Y, gamma2)
+    end
     w_prime = rowsum_filter(Y, w, u)
 
     sqrt_w = sqrt.(max.(w_prime, 0.0))
@@ -120,8 +182,29 @@ function rt_hd(n, p=1, df=3.0; sd=nothing, mu=zeros(p))
     return samples .+ mu'
 end
 
-function rlaplace_hd(n, p=1, s=1.0; mu=zeros(p))
+function rlaplace_hd(n, p=1, s=1/sqrt(2); mu=zeros(p))
     d = Laplace(0, s)
     samples = rand(d, n, p)
     return samples .+ mu'
+end
+
+function rlaplace_hd_cpt(n, p=1, epsilon; cpt=800, mu_norm=2)
+    # 1. Define Mean Vectors
+    mu_null = zeros(p)
+    mu_alt = fill(mu_norm/ sqrt(p), p) 
+    
+    # 2. Generate Clean Data with Change Point
+    Y_before = rlaplace_hd(cpt, p, 1.0; mu=mu_null)
+    Y_after = rlaplace_hd(n-cpt, p, 1.0; mu=mu_alt)
+    Y_clean = [Y_before; Y_after]
+
+    # 3. Corruptions
+    # Draw shared n_corrupt for this iteration
+    is_contaminated = rand(Bernoulli(epsilon), n)
+    n_corrupt = sum(is_contaminated)
+    corrupt = randn(n_corrupt, p) .- 1.0
+    corrupt_idx = findall(is_contaminated)
+    Y_clean[corrupt_idx, :] = corrupt
+
+    return Y_clean
 end

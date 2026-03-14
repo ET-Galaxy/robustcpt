@@ -12,7 +12,7 @@ iterations<-1000
 ## ===== 1.1 Illustrate effect of misspecification ====
 mu1<-1
 n<-500
-C_gamma_seq<-c(0.05, 0.1,0.3,0.5)
+C_gamma_seq<-c(0.03, 0.05,0.1,0.5)
 kappa_seq <- seq(0.1, 3.5, by = 0.1)
 results <- expand.grid(C_gamma = C_gamma_seq, kappa0 = kappa_seq) %>%
   mutate(error_rate = 0, power = 0)
