@@ -163,8 +163,7 @@ function robust_mean_test(Y, kappa0, delta, epsilon; C_gamma=1.0, fin_moment=fal
     Sum_wS = vec(sum(sqrt_w .* Y, dims=1))
 
     test_stat = abs(sum(Sum_wS.^2) - p * sum(w_prime))
-
-    return test_stat >= 0.1 * kappa0^2 * n^2
+    return test_stat >= 0.5 * kappa0^2 * n^2
 end
 
 # --- Data Generation Functions ---

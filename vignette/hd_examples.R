@@ -6,7 +6,7 @@ library(robustcpt)
 
 # ==== 1. Laplace distribution ====
 p<-5
-delta=4*0.2/(1500^2*1501)
+delta=0.1 #4*0.2/(1500^2*1501)
 epsilon=0
 iterations<-100
 ## ===== 1.1 Illustrate effect of misspecification ====
