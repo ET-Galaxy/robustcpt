@@ -2,13 +2,13 @@ using Distributed, DataFrames
 include("hd_utils.jl")
 
 # Parameters
-p_seq = 5
+p_seq = 100
 kappa_seq = 0.25
 iterations = 1
 n=4000
 cpt=1600
 alpha=0.2
-epsilon, alpha, C_gamma = 0, 0.2, 0.5
+epsilon, alpha, C_gamma = 0, 0.2, 0.9
 
 # Grid Setup
 #heatmap_data = DataFrame(Iterators.product(p_seq, kappa_seq))

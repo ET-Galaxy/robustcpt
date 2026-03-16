@@ -3,10 +3,10 @@ include("hd_utils.jl")
 
 # Parameters
 n_seq = 500
-kappa_seq = 1:3
+kappa_seq = 1
 threshold= 1
 iterations = 100
-p, epsilon, delta, C_gamma = 600, 0.04, 0.1, 0.9
+p, epsilon, delta, C_gamma = 700, 0.04, 0.1, 0.9 # smaller C_gamma needed for smaller threshold
 
 # Grid Setup
 heatmap_data = DataFrame(Iterators.product(n_seq, kappa_seq))
