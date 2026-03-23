@@ -57,9 +57,12 @@ for (i in 1:nrow(results)) {
   results$error_rate[i] <- rej_null / iterations
   results$power[i]      <- rej_alt / iterations
 }
-#plot_df<-read.csv("data/Latest_format/hd_misspec_p100.csv")
+
 #results<-rbind(plot_df,results)
-#write.csv(results,"data/Latest_format/hd_misspec_p100.csv", row.names = FALSE)
+#results<-results[order(results$C_gamma), ]
+#write.csv(results,"data/Latest_format/hd_misspec_p100_t.csv", row.names = FALSE)
+#plot_df<-read.csv("data/Latest_format/hd_misspec_p100_tmore.csv")
+results<-read.csv("data/Latest_format/hd_misspec_p600_t.csv")
 
 # For fixed n, fixed mu, vary kappa0 to see the effect of misspecification
 # Professional Color Palette
@@ -68,6 +71,8 @@ for (i in 1:nrow(results)) {
 # This creates a 'Metric' column (Type I Error vs Power)
 # and a 'Value' column (the actual rates)
 plot_df_long <- results %>%
+filter(C_gamma %in% c(0.007,0.008,0.5)) %>%
+  filter(kappa0<=3) %>%
   pivot_longer(
     cols = c(error_rate, power),
     names_to = "Metric",
@@ -81,11 +86,11 @@ plot_df_long <- results %>%
 
 # 2. Create the plot
 ggplot(plot_df_long, aes(x = kappa0, y = Rate, color = C_gamma_fact, linetype = Metric)) +
-  geom_line(size = 1.1) +
+  geom_line(size = 1.1, alpha = 0.7) +
   # Add a horizontal line for the nominal alpha/delta level
-  geom_hline(yintercept = 0.9, linetype = "dashed", color = "blue", size = 0.8) +
-  geom_hline(yintercept = 0.1, linetype = "dashed", color = "red", size = 0.8) +
-  geom_vline(xintercept = mu1, color = "black", size = 1) +
+  geom_hline(yintercept = 0.9, linetype = "solid", color = "blue", linewidth = 0.7) +
+  geom_hline(yintercept = 0.1, linetype = "solid", color = "red", linewidth = 0.7) +
+  geom_vline(xintercept = mu1, color = "black", linewidth = 1.5) +
   scale_color_viridis_d(option = "plasma", end = 0.8) + # Professional color palette
   labs(
     x = expression(Signal~size~input~(kappa[0])),
@@ -167,8 +172,45 @@ for (idx in 1:nrow(heatmap_data)) {
   heatmap_data$error_rate2[idx] <- 1-rejections / iterations
 }
 
-# --- Plotting ---
-heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/th1e5p100.csv")
+# --- Plotting (Vary kappa, fix p) ---
+heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/th1varyp.csv")
+#heatmap_data2<-read.csv("data/Latest_format/rawdata/hd_test/v2e4p100more.csv")
+#heatmap_data<-rbind(heatmap_data,heatmap_data2)
+#write.csv(heatmap_data,"data/Latest_format/v2e4p100.csv", row.names = FALSE)
+
+# Heatmap for when both error guarantees are satisfied.
+heatmap_data <- heatmap_data %>%
+  filter(kappa0>=0.1)%>%
+  mutate(region = case_when(
+    type1_error <= 0.1  & type2_error <= 0.1  ~ "Reliably Detectable",
+    type1_error > 0.1 | type2_error > 0.1  ~ "Not Reliably Detectable"
+  ))
+
+region_colors <- c(
+  "Reliably Detectable" = "#3498db", # Blue
+  "Not Reliably Detectable"   = "#e74c3c"  # Alizarin Red
+)
+
+ggplot(heatmap_data, aes(x = kappa0, y = factor(n), fill = region)) +
+  geom_tile(color = "white", size = 0.2) +
+  scale_fill_manual(values = region_colors) +
+  scale_x_continuous(breaks = seq(0.1, 1.2, by = 0.1)) +
+  scale_y_discrete(breaks = seq(500, 3000, by = 500)) +
+  labs(
+    x = expression(kappa),
+    y = "n",
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top"
+  )
+
+# --- Plotting (Vary p, fix kappa) ---
+heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/th1varyp.csv")
+#heatmap_data2<-read.csv("data/Latest_format/rawdata/hd_test/v2e4p100more.csv")
+#heatmap_data<-rbind(heatmap_data,heatmap_data2)
+#write.csv(heatmap_data,"data/Latest_format/v2e4p100.csv", row.names = FALSE)
 
 # Heatmap for when both error guarantees are satisfied.
 heatmap_data <- heatmap_data %>%
@@ -182,13 +224,14 @@ region_colors <- c(
   "Not Reliably Detectable"   = "#e74c3c"  # Alizarin Red
 )
 
-ggplot(heatmap_data, aes(x = factor(n), y = kappa0, fill = region)) +
+ggplot(heatmap_data, aes(x = p, y = factor(n), fill = region)) +
   geom_tile(color = "white", size = 0.2) +
   scale_fill_manual(values = region_colors) +
-  scale_x_discrete(breaks = seq(500, 3000, by = 500)) +
+  scale_x_continuous(breaks = seq(50, 1000, by = 50)) +
+  scale_y_discrete(breaks = seq(500, 3000, by = 500)) +
   labs(
-    x = "n",
-    y = expression(kappa[0]),
+    x = "p",
+    y = "n",
     fill = NULL
   ) +
   theme_minimal() +
@@ -200,7 +243,7 @@ ggplot(heatmap_data, aes(x = factor(n), y = kappa0, fill = region)) +
 # 1. Calculate the minimum kappa0 for the 'green' condition for each n
 boundary_df <- heatmap_data %>%
   # Filter for the 'Green Region' (both error rates below 10%)
-  filter(error_rate < 0.1 & error_rate2 < 0.1) %>%
+  filter(type1_error < 0.1 & type2_error < 0.1) %>%
   # Group by sample size
   group_by(n) %>%
   # Find the smallest kappa0 that satisfies the condition
@@ -217,20 +260,20 @@ curve_df <- data.frame(
   fitted_kappa0 = sqrt(beta_hat / n_range)
 )
 
-ggplot(boundary_df, aes(x = n, y = min_kappa0)) +
+ggplot(boundary_df, aes(y = n, x = min_kappa0)) +
   geom_point(color = "#27ae60", size = 3) +
   # The Fitted Model Line (The Curve)
-  geom_line(data = curve_df, aes(x = n, y = fitted_kappa0),
+  geom_line(data = curve_df, aes(y = n, x = fitted_kappa0),
             color = "firebrick", size = 1.2, linetype = "solid") +
   # Add a shaded area below to show the 'Unsafe Zone'
-  geom_ribbon(aes(ymin = 0, ymax = min_kappa0), fill = "#e74c3c", alpha = 0.1) +
-  annotate("text", x = mean(boundary_df$n), y = min(boundary_df$min_kappa0)/2,
+  geom_ribbon(aes(xmin = 0, xmax = min_kappa0), fill = "#e74c3c", alpha = 0.1) +
+  annotate("text", y = mean(boundary_df$n), x = min(boundary_df$min_kappa0)/2,
            label = "Insufficient Robustness", color = "#e74c3c", alpha = 0.6) +
   labs(
     title = "Minimum $\\kappa_0$ Boundary for Valid Inference",
     subtitle = "Smallest $\\kappa_0$ required to maintain Type I error < 10% for both tests",
-    x = "Sample Size (n)",
-    y = expression(paste("Minimum ", kappa[0]))
+    y = "Sample Size (n)",
+    x = expression(paste("Minimum ", kappa[0]))
   ) +
   theme_minimal()
 

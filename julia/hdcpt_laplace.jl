@@ -28,7 +28,7 @@ for i in 1:iterations
         current_Y=Y[1:t,:]
         delta_t=4*alpha/(t^2*(t+1))
         K=sqrt(log(1/delta_t)/2)
-        threshold_s=ceil(Int,((K+sqrt(K^2+4(0.09-2*epsilon)))/(2*(0.09-2*epsilon)))^2)
+        threshold_s=ceil(Int,((K+sqrt(K^2+4(0.1-2*epsilon)))/(2*(0.1-2*epsilon)))^2)
         limit = floor(Int, t/2)
         if threshold_s<=limit
             X_t = zeros(limit, curr_p)

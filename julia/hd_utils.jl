@@ -143,18 +143,14 @@ function robust_mean_test(Y, kappa0, delta, epsilon; C_gamma=1.0, fin_moment=fal
         throw(ArgumentError("n is too small. u ($u) needs to be less than 0.1"))
     end
 
-    if n>p
-        # Compute gamma_2
-        gamma2 = C_gamma * (
+    gamma2 = C_gamma * (
             u * n * p * log(1/u) +
-            sqrt(n * p) * log(2 * p / delta) +
-            kappa0 * n
+            (sqrt(n * p)+p) * log(2 * p / delta) +
+            kappa0^2 * n
         )
-
+    if n>p
         w = spectral_filter(Y, gamma2)
     else 
-        # Compute gamma_2
-        gamma2 = C_gamma * (p * log(2 * n * p / delta) + n * kappa0^2)
         w = spectral_filter_smalln(Y, gamma2)
     end
     w_prime = rowsum_filter(Y, w, u)
