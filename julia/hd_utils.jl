@@ -131,14 +131,14 @@ Robust Mean Testing routine (Canconne et al. 2023).
 function robust_mean_test(Y, kappa0, delta, epsilon; C_gamma=1.0, fin_moment=false)
     n, p = size(Y)
 
-    # Contamination fraction u
     if fin_moment
-        u = epsilon + min(0.05, 0.05*p/n) + sqrt(log(1/delta) / (2*n))
-    else 
-        u = epsilon + 1/n + sqrt(log(1/delta) / (2*n))
+        q = epsilon + min(p/(20n),1/20)
+    else
+        q = epsilon + 1/n
     end
+    u = q + sqrt(2*q*log(1/delta)/n)+2*log(1/delta)/(3*n)
     
-    if u > 0.09
+    if u > 0.1
         # Following your R logic: strict thresholding
         throw(ArgumentError("n is too small. u ($u) needs to be less than 0.1"))
     end
@@ -158,7 +158,7 @@ function robust_mean_test(Y, kappa0, delta, epsilon; C_gamma=1.0, fin_moment=fal
     sqrt_w = sqrt.(max.(w_prime, 0.0))
     Sum_wS = vec(sum(sqrt_w .* Y, dims=1))
     test_stat = abs(sum(Sum_wS.^2) - p * sum(w_prime))
-    return test_stat >= 0.1 * kappa0^2 * n^2
+    return test_stat >= (1-6u)^2/2 * kappa0^2 * n^2
 end
 
 # --- Data Generation Functions ---
@@ -188,8 +188,8 @@ function rlaplace_hd_cpt(n, p, epsilon; cpt=800, mu_norm=2)
     mu_alt = fill(mu_norm/ sqrt(p), p) 
     
     # 2. Generate Clean Data with Change Point
-    Y_before = rlaplace_hd(cpt, p, 1.0; mu=mu_null)
-    Y_after = rlaplace_hd(n-cpt, p, 1.0; mu=mu_alt)
+    Y_before = rlaplace_hd(cpt, p; mu=mu_null)
+    Y_after = rlaplace_hd(n-cpt, p; mu=mu_alt)
     Y_clean = [Y_before; Y_after]
 
     # 3. Corruptions

@@ -62,7 +62,7 @@ for (i in 1:nrow(results)) {
 #results<-results[order(results$C_gamma), ]
 #write.csv(results,"data/Latest_format/hd_misspec_p100_t.csv", row.names = FALSE)
 #plot_df<-read.csv("data/Latest_format/hd_misspec_p100_tmore.csv")
-results<-read.csv("data/Latest_format/hd_misspec_p600_t.csv")
+results<-read.csv("data/Latest_format/rawdata/hd_test/th1_cpttest2.csv")
 
 # For fixed n, fixed mu, vary kappa0 to see the effect of misspecification
 # Professional Color Palette
@@ -71,7 +71,7 @@ results<-read.csv("data/Latest_format/hd_misspec_p600_t.csv")
 # This creates a 'Metric' column (Type I Error vs Power)
 # and a 'Value' column (the actual rates)
 plot_df_long <- results %>%
-filter(C_gamma %in% c(0.007,0.008,0.5)) %>%
+#filter(C_gamma %in% c(0.007,0.008,0.5)) %>%
   filter(kappa0<=3) %>%
   pivot_longer(
     cols = c(error_rate, power),
@@ -173,14 +173,15 @@ for (idx in 1:nrow(heatmap_data)) {
 }
 
 # --- Plotting (Vary kappa, fix p) ---
-heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/th1varyp.csv")
+heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/th1e4p100new.csv")
 #heatmap_data2<-read.csv("data/Latest_format/rawdata/hd_test/v2e4p100more.csv")
 #heatmap_data<-rbind(heatmap_data,heatmap_data2)
 #write.csv(heatmap_data,"data/Latest_format/v2e4p100.csv", row.names = FALSE)
 
 # Heatmap for when both error guarantees are satisfied.
 heatmap_data <- heatmap_data %>%
-  filter(kappa0>=0.1)%>%
+  filter(kappa0<=0.5)%>%
+  filter(kappa0>=0.25)%>%
   mutate(region = case_when(
     type1_error <= 0.1  & type2_error <= 0.1  ~ "Reliably Detectable",
     type1_error > 0.1 | type2_error > 0.1  ~ "Not Reliably Detectable"
@@ -207,16 +208,32 @@ ggplot(heatmap_data, aes(x = kappa0, y = factor(n), fill = region)) +
   )
 
 # --- Plotting (Vary p, fix kappa) ---
-heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/th1varyp.csv")
-#heatmap_data2<-read.csv("data/Latest_format/rawdata/hd_test/v2e4p100more.csv")
-#heatmap_data<-rbind(heatmap_data,heatmap_data2)
-#write.csv(heatmap_data,"data/Latest_format/v2e4p100.csv", row.names = FALSE)
+heatmap_data<-read.csv("data/Latest_format/th1varyp.csv")
+#heatmap_data2<-read.csv("data/Latest_format/rawdata/hd_test/th1varyp2.csv")
+heatmap_data<-rbind(heatmap_data,new_df1)
+#write.csv(heatmap_data,"data/Latest_format/th1varyp.csv", row.names = FALSE)
+
+new_df <- expand.grid(
+  n = seq(2050, 2200, by = 50),
+  p = seq(50, 1000, by = 50)
+)
+new_df$type1_error <- 0
+new_df$type2_error <- 0
+
+new_df1 <- expand.grid(
+  n = seq(500, 1450, by = 50),
+  p = seq(1050, 1250, by = 50)
+)
+new_df1$type1_error <- 1
+new_df1$type2_error <- 1
+
 
 # Heatmap for when both error guarantees are satisfied.
 heatmap_data <- heatmap_data %>%
   mutate(region = case_when(
     type1_error <= 0.1  & type2_error <= 0.1  ~ "Reliably Detectable",
-    type1_error > 0.1 | type2_error > 0.1  ~ "Not Reliably Detectable"
+    type1_error > 0.1 | type2_error > 0.1  ~ "Not Reliably Detectable",
+    is.na(type1_error) | is.na(type2_error) ~ "Not Reliably Detectable"
   ))
 
 region_colors <- c(
@@ -227,8 +244,8 @@ region_colors <- c(
 ggplot(heatmap_data, aes(x = p, y = factor(n), fill = region)) +
   geom_tile(color = "white", size = 0.2) +
   scale_fill_manual(values = region_colors) +
-  scale_x_continuous(breaks = seq(50, 1000, by = 50)) +
-  scale_y_discrete(breaks = seq(500, 3000, by = 500)) +
+  scale_x_continuous(breaks = seq(100, 1200, by = 100)) +
+  scale_y_discrete(breaks = seq(500, 3500, by = 500)) +
   labs(
     x = "p",
     y = "n",

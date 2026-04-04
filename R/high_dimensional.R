@@ -119,7 +119,7 @@ RobustMeanTest <- function(Y, kappa0,
   gamma2 <- C_gamma * (
     u * n * p * log(1/u) +
       sqrt(n * p) * log(2 * p / delta) +
-      kappa0 * n
+      kappa0^2 * n
   )
 
   w <- spectral_filter(Y, gamma2)
