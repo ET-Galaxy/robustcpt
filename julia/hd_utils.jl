@@ -20,7 +20,6 @@ function spectral_filter_smalln(Y, gamma2)
         # Element-wise multiplication: G_ij = sqrt_wi * sqrt_wj * (YYt)_ij
         Gram_w = (sqrt_w .* sqrt_w') .* YYt
         
-        # D(w) is the diagonal of the Gram matrix
         D_w = diagm(sqrt_w)
         
         # Matrix for the operator norm check
@@ -128,37 +127,83 @@ end
 
 Robust Mean Testing routine (Canconne et al. 2023).
 """
-function robust_mean_test(Y, kappa0, delta, epsilon; C_gamma=1.0, fin_moment=false)
+function robust_mean_test(Y, kappa0, delta, epsilon, fm=false; C_gamma=0.1, Tu=6)
     n, p = size(Y)
 
-    if fin_moment
-        q = epsilon + min(p/(20n),1/20)
+    # Contamination fraction u
+    if fm
+        q = epsilon + min(p/(20*n),1/20)
     else
         q = epsilon + 1/n
     end
-    u = q + sqrt(2*q*log(1/delta)/n)+2*log(1/delta)/(3*n)
+    u = q + sqrt(2*q*log(4/delta)/n)+2*log(4/delta)/(3*n)
     
     if u > 0.1
-        # Following your R logic: strict thresholding
         throw(ArgumentError("n is too small. u ($u) needs to be less than 0.1"))
     end
-
+    
     gamma2 = C_gamma * (
             u * n * p * log(1/u) +
             (sqrt(n * p)+p) * log(2 * p / delta) +
-            kappa0^2 * n
-        )
+            kappa0^2 * n)
     if n>p
         w = spectral_filter(Y, gamma2)
     else 
         w = spectral_filter_smalln(Y, gamma2)
     end
+    
     w_prime = rowsum_filter(Y, w, u)
 
     sqrt_w = sqrt.(max.(w_prime, 0.0))
     Sum_wS = vec(sum(sqrt_w .* Y, dims=1))
+
     test_stat = abs(sum(Sum_wS.^2) - p * sum(w_prime))
-    return test_stat >= (1-6u)^2/2 * kappa0^2 * n^2
+
+    return test_stat >= (1-Tu*u)^2/2 * kappa0^2 * n^2
+end
+
+function robust_mean_test_mom(Y, kappa0, omega, epsilon; C_gamma=0.1, Tu=6)
+    function rmt_stat(Y, u, kappa0, delta, epsilon, C_gamma)
+        n, p = size(Y)
+        
+        if u > 0.1
+            throw(ArgumentError("n is too small. u ($u) needs to be less than 0.1"))
+        end
+        
+        gamma2 = C_gamma * (
+                u * n * p * log(1/u) +
+                (sqrt(n * p)+p) * log(2 * p / delta) +
+                kappa0^2 * n)
+        if n>p
+            w = spectral_filter(Y, gamma2)
+        else 
+            w = spectral_filter_smalln(Y, gamma2)
+        end
+        
+        w_prime = rowsum_filter(Y, w, u)
+
+        sqrt_w = sqrt.(max.(w_prime, 0.0))
+        Sum_wS = vec(sum(sqrt_w .* Y, dims=1))
+
+        test_stat = abs(sum(Sum_wS.^2) - p * sum(w_prime))
+
+        return test_stat
+    end
+    n, p = size(Y)
+    k=ceil(Int, 8*log(1/omega))  
+    if n<k
+        throw(ArgumentError("n is too small. n ($n) needs to be at least k ($k)"))
+    end
+    block_size = div(n, k)
+    U_stats=zeros(k)
+    q = epsilon + min(p/(20*block_size),1/20)
+    u= q + sqrt(2*q*log(16*k)/block_size)+2*log(16*k)/(3*block_size)
+    ends = n:-block_size:(n - (k-1)*block_size)
+    for i in 1:k  
+        idx = (ends[i] - block_size + 1):ends[i]
+        U_stats[i] = rmt_stat(Y[idx, :], u, kappa0, 1/(4k), epsilon, C_gamma)
+    end
+    return median(U_stats)>= (1-Tu*u)^2/2 * kappa0^2 * block_size^2
 end
 
 # --- Data Generation Functions ---
@@ -176,13 +221,13 @@ function rt_hd(n, p=1, df=3.0; sd=nothing, mu=zeros(p))
     return samples .+ mu'
 end
 
-function rlaplace_hd(n, p, s=1/sqrt(2); mu=zeros(p))
+function rlaplace_hd(n, p=1, s=1/sqrt(2); mu=zeros(p))
     d = Laplace(0, s)
     samples = rand(d, n, p)
     return samples .+ mu'
 end
 
-function rlaplace_hd_cpt(n, p, epsilon; cpt=800, mu_norm=2)
+function rlaplace_hd_cpt(n, p, epsilon; cpt=100, mu_norm=2)
     # 1. Define Mean Vectors
     mu_null = zeros(p)
     mu_alt = fill(mu_norm/ sqrt(p), p) 
@@ -196,9 +241,32 @@ function rlaplace_hd_cpt(n, p, epsilon; cpt=800, mu_norm=2)
     # Draw shared n_corrupt for this iteration
     is_contaminated = rand(Bernoulli(epsilon), n)
     n_corrupt = sum(is_contaminated)
-    corrupt = randn(n_corrupt, p) .- 1.0
-    corrupt_idx = findall(is_contaminated)
-    Y_clean[corrupt_idx, :] = corrupt
+    if n_corrupt>0 
+        corrupt = randn(n_corrupt, p) .- 1.0
+        corrupt_idx = findall(is_contaminated)
+        Y_clean[corrupt_idx, :] = corrupt
+    end
+    return Y_clean
+end
 
+function rt_hd_cpt(n, p, epsilon; cpt=100, mu_norm=2)
+    # 1. Define Mean Vectors
+    mu_null = zeros(p)
+    mu_alt = fill(mu_norm/ sqrt(p), p) 
+    
+    # 2. Generate Clean Data with Change Point
+    Y_before = rt_hd(cpt, p, 4.1; sd=1, mu=mu_null)
+    Y_after = rt_hd(n-cpt, p, 4.1; sd=1, mu=mu_alt)
+    Y_clean = [Y_before; Y_after]
+
+    # 3. Corruptions
+    # Draw shared n_corrupt for this iteration
+    is_contaminated = rand(Bernoulli(epsilon), n)
+    n_corrupt = sum(is_contaminated)
+    if n_corrupt>0 
+        corrupt = randn(n_corrupt, p) .- 1.0
+        corrupt_idx = findall(is_contaminated)
+        Y_clean[corrupt_idx, :] = corrupt
+    end
     return Y_clean
 end

@@ -62,7 +62,7 @@ for (i in 1:nrow(results)) {
 #results<-results[order(results$C_gamma), ]
 #write.csv(results,"data/Latest_format/hd_misspec_p100_t.csv", row.names = FALSE)
 #plot_df<-read.csv("data/Latest_format/hd_misspec_p100_tmore.csv")
-results<-read.csv("data/Latest_format/rawdata/hd_test/th1_cpttest2.csv")
+results<-read.csv("data/Latest_format/rawdata/hd_test/th1_sensitive_p600.csv")
 
 # For fixed n, fixed mu, vary kappa0 to see the effect of misspecification
 # Professional Color Palette
@@ -71,7 +71,7 @@ results<-read.csv("data/Latest_format/rawdata/hd_test/th1_cpttest2.csv")
 # This creates a 'Metric' column (Type I Error vs Power)
 # and a 'Value' column (the actual rates)
 plot_df_long <- results %>%
-#filter(C_gamma %in% c(0.007,0.008,0.5)) %>%
+#filter(C_gamma %in% c(0.01,0.03,0.05,0.5)) %>%
   filter(kappa0<=3) %>%
   pivot_longer(
     cols = c(error_rate, power),
@@ -173,15 +173,14 @@ for (idx in 1:nrow(heatmap_data)) {
 }
 
 # --- Plotting (Vary kappa, fix p) ---
-heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/th1e4p100new.csv")
+heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/v2e4p100new.csv")
 #heatmap_data2<-read.csv("data/Latest_format/rawdata/hd_test/v2e4p100more.csv")
 #heatmap_data<-rbind(heatmap_data,heatmap_data2)
 #write.csv(heatmap_data,"data/Latest_format/v2e4p100.csv", row.names = FALSE)
 
 # Heatmap for when both error guarantees are satisfied.
 heatmap_data <- heatmap_data %>%
-  filter(kappa0<=0.5)%>%
-  filter(kappa0>=0.25)%>%
+  filter(kappa0<=0.85)%>%
   mutate(region = case_when(
     type1_error <= 0.1  & type2_error <= 0.1  ~ "Reliably Detectable",
     type1_error > 0.1 | type2_error > 0.1  ~ "Not Reliably Detectable"
@@ -393,4 +392,123 @@ ggplot(plot_df, aes(x = kappa0)) +
     legend.position = "top",
     legend.text = element_text(size=13),
     plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+# ===== 3. HD CPT =====
+get_proportions <- function(x) {
+  total <- length(x)
+  c(
+    not_detected = sum(x >= 1501) / total,
+    false_alarm = sum(x >= 0 & x <= 500) / total,
+    detected = sum(x > 500 & x < 1501) / total
+  )
+}
+
+# Detectability
+rawdata<-read.csv("data/Latest_format/rawdata/hd_test/hdcpt_laplace_p10_bigk.csv")
+
+data1 <- rawdata %>%
+  pivot_longer(-kappa, values_to = "stoppingT")
+
+props <- data1 %>%
+  group_by(kappa) %>%
+  reframe(
+    tibble::as_tibble_row(get_proportions(stoppingT))
+  )
+# props$false_alarm[1]<-props$false_alarm[1]+props$detected[1]
+# props$detected[1]<-0
+
+
+props_longer<- props %>%
+  pivot_longer(
+    cols = c(not_detected, false_alarm, detected),
+    names_to = "category",
+    values_to = "proportion") %>%
+  mutate(category = factor(category,
+                           levels = c("not_detected","detected","false_alarm")))
+
+snr_step <- min(diff(sort(unique(props_longer$kappa))))
+ggplot(props_longer,
+      aes(x = kappa,
+          y = proportion,
+          fill = category)) +
+  geom_col(width = snr_step * 0.98,
+           colour = "white",
+           linewidth = 0.2) +
+  geom_hline(yintercept = 0.1,
+             linetype = "dashed",
+             linewidth = 0.5) +
+  scale_x_continuous(
+    breaks = seq(8000, 20000, by = 1000),
+    expand = expansion(mult = c(0, 0))
+  ) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    expand = expansion(mult = c(0, 0))
+  ) +
+  labs(
+    x = expression(kappa),
+    y = "Empirical probability"
+  ) +
+  scale_fill_manual(
+    values = c(
+      not_detected = "#999999",
+      detected     = "#0072B2",
+      false_alarm  = "#D55E00"
+    )
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle=45, vjust=0.5)
+  )
+
+
+# Detection delay
+detected_long <- data1 %>%
+  filter(kappa >=0.4)%>%
+  filter(stoppingT > 300)
+
+result <- detected_long %>%
+  group_by(kappa) %>%
+  summarise(meanT = mean(stoppingT), sdT=sd(stoppingT))
+
+result$meanT<-result$meanT-500
+
+ggplot(result, aes(x = kappa, y = meanT)) +
+  geom_point(size = 1.6, colour = "black") +
+  # geom_line(data = grid,
+  #           aes(y = fit_inv_sq,
+  #               colour = "Regime 2"),
+  #           linewidth = 0.9) +
+  # geom_line(data = grid2,
+  #           aes(y = fit_log_inv,
+  #               colour = "Regime 3"),
+  #           linewidth = 0.9) +
+  scale_x_continuous(
+    breaks = seq(8000, 20000, by = 1000))+
+  labs(
+    x = expression(kappa),
+    y = "Mean detection delay",
+    colour = NULL
+  ) +
+  # scale_colour_manual(
+  #   breaks = c("Regime 2", "Regime 3"),
+  #   values = c(
+  #     "Regime 2" = "pink",
+  #     "Regime 3" = "#2C7BB6"
+  #   )
+  # ) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.major = element_line(colour = "grey90", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    legend.position = "top",
+    legend.key.width = unit(1.5, "cm"),
+    legend.spacing.x = unit(0.6, "cm"),
+    axis.text.x = element_text(angle=45, vjust=0.5)
   )
