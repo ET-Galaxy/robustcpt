@@ -62,7 +62,7 @@ for (i in 1:nrow(results)) {
 #results<-results[order(results$C_gamma), ]
 #write.csv(results,"data/Latest_format/hd_misspec_p100_t.csv", row.names = FALSE)
 #plot_df<-read.csv("data/Latest_format/hd_misspec_p100_tmore.csv")
-results<-read.csv("data/Latest_format/rawdata/hd_test/th1_sensitive_p600.csv")
+results<-read.csv("data/Latest_format/rawdata/hd_test/v4_sensitive_p10.csv")
 
 # For fixed n, fixed mu, vary kappa0 to see the effect of misspecification
 # Professional Color Palette
@@ -71,7 +71,7 @@ results<-read.csv("data/Latest_format/rawdata/hd_test/th1_sensitive_p600.csv")
 # This creates a 'Metric' column (Type I Error vs Power)
 # and a 'Value' column (the actual rates)
 plot_df_long <- results %>%
-#filter(C_gamma %in% c(0.01,0.03,0.05,0.5)) %>%
+#filter(C_gamma %in% c(0.01,0.03,0.05)) %>%
   filter(kappa0<=3) %>%
   pivot_longer(
     cols = c(error_rate, power),
@@ -107,8 +107,27 @@ ggplot(plot_df_long, aes(x = kappa0, y = Rate, color = C_gamma_fact, linetype = 
 
 ggplot(plot_df_long, aes(x = kappa0, y = Rate, color = Metric)) +
   geom_line(size = 1) +
-  facet_wrap(~C_gamma_fact, labeller = label_both) +
-  theme_bw()
+  facet_wrap(
+    ~C_gamma_fact,
+    ncol = 4,
+    labeller = labeller(
+      C_gamma_fact = function(x) {
+        paste0("C[gamma] == ", x)
+      },
+      .default = label_parsed
+    )
+  ) +
+  geom_vline(xintercept = 1, color = "black", linewidth = 1)+
+  geom_hline(yintercept = 0.9, linetype = "solid", color = "blue", linewidth = 0.7) +
+  geom_hline(yintercept = 0.1, linetype = "solid", color = "red", linewidth = 0.7) +
+  labs(
+    x = expression(Signal~size~input~(kappa[0])),
+    y = "Empirical Probability"
+  )+
+  theme_bw()+
+  theme(
+  legend.position = "top"
+  )
 
 ## === 1.2 Sample complexity vs signal size ====
 # Define the grid ranges
@@ -173,14 +192,14 @@ for (idx in 1:nrow(heatmap_data)) {
 }
 
 # --- Plotting (Vary kappa, fix p) ---
-heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/v2e4p100new.csv")
-#heatmap_data2<-read.csv("data/Latest_format/rawdata/hd_test/v2e4p100more.csv")
-#heatmap_data<-rbind(heatmap_data,heatmap_data2)
+heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/v4e4p100.csv")
+heatmap_data2<-read.csv("data/Latest_format/rawdata/hd_test/v4e4p100more.csv")
+heatmap_data<-rbind(heatmap_data,heatmap_data2)
 #write.csv(heatmap_data,"data/Latest_format/v2e4p100.csv", row.names = FALSE)
 
 # Heatmap for when both error guarantees are satisfied.
 heatmap_data <- heatmap_data %>%
-  filter(kappa0<=0.85)%>%
+  filter(kappa0>=0.25)%>%
   mutate(region = case_when(
     type1_error <= 0.1  & type2_error <= 0.1  ~ "Reliably Detectable",
     type1_error > 0.1 | type2_error > 0.1  ~ "Not Reliably Detectable"
@@ -194,7 +213,7 @@ region_colors <- c(
 ggplot(heatmap_data, aes(x = kappa0, y = factor(n), fill = region)) +
   geom_tile(color = "white", size = 0.2) +
   scale_fill_manual(values = region_colors) +
-  scale_x_continuous(breaks = seq(0.1, 1.2, by = 0.1)) +
+  scale_x_continuous(breaks = seq(0.2, 1.2, by = 0.05)) +
   scale_y_discrete(breaks = seq(500, 3000, by = 500)) +
   labs(
     x = expression(kappa),
@@ -207,7 +226,7 @@ ggplot(heatmap_data, aes(x = kappa0, y = factor(n), fill = region)) +
   )
 
 # --- Plotting (Vary p, fix kappa) ---
-heatmap_data<-read.csv("data/Latest_format/th1varyp.csv")
+heatmap_data<-read.csv("data/Latest_format/rawdata/hd_test/v4varyp.csv")
 #heatmap_data2<-read.csv("data/Latest_format/rawdata/hd_test/th1varyp2.csv")
 heatmap_data<-rbind(heatmap_data,new_df1)
 #write.csv(heatmap_data,"data/Latest_format/th1varyp.csv", row.names = FALSE)
@@ -229,6 +248,8 @@ new_df1$type2_error <- 1
 
 # Heatmap for when both error guarantees are satisfied.
 heatmap_data <- heatmap_data %>%
+  filter(p>=100) %>%
+  filter(n<=1000) %>%
   mutate(region = case_when(
     type1_error <= 0.1  & type2_error <= 0.1  ~ "Reliably Detectable",
     type1_error > 0.1 | type2_error > 0.1  ~ "Not Reliably Detectable",
@@ -244,7 +265,7 @@ ggplot(heatmap_data, aes(x = p, y = factor(n), fill = region)) +
   geom_tile(color = "white", size = 0.2) +
   scale_fill_manual(values = region_colors) +
   scale_x_continuous(breaks = seq(100, 1200, by = 100)) +
-  scale_y_discrete(breaks = seq(500, 3500, by = 500)) +
+  scale_y_discrete(breaks = seq(200, 3000, by = 200)) +
   labs(
     x = "p",
     y = "n",
@@ -277,7 +298,7 @@ curve_df <- data.frame(
 )
 
 ggplot(boundary_df, aes(y = n, x = min_kappa0)) +
-  geom_point(color = "#27ae60", size = 3) +
+  geom_point(color = "#27ae60", size = 2) +
   # The Fitted Model Line (The Curve)
   geom_line(data = curve_df, aes(y = n, x = fitted_kappa0),
             color = "firebrick", size = 1.2, linetype = "solid") +
@@ -397,28 +418,36 @@ ggplot(plot_df, aes(x = kappa0)) +
 
 
 # ===== 3. HD CPT =====
+cpt=3000
+n=9000
 get_proportions <- function(x) {
   total <- length(x)
   c(
-    not_detected = sum(x >= 1501) / total,
-    false_alarm = sum(x >= 0 & x <= 500) / total,
-    detected = sum(x > 500 & x < 1501) / total
+    not_detected = sum(x >= n+1) / total,
+    false_alarm = sum(x >= 0 & x <= cpt) / total,
+    detected = sum(x > cpt & x <= n) / total
   )
 }
 
 # Detectability
-rawdata<-read.csv("data/Latest_format/rawdata/hd_test/hdcpt_laplace_p10_bigk.csv")
+rawdata<-read.csv("data/Latest_format/rawdata/hd_test/hdcpt_t_p10.csv")
+rawdata2<-read.csv("data/Latest_format/rawdata/hd_test/hdcpt_t_p10_test.csv")
+rawdata3<-read.csv("data/Latest_format/rawdata/hd_test/hdcpt_t_p10more1.csv")
 
-data1 <- rawdata %>%
+fulldata<-rbind(rawdata,rawdata3,rawdata2)
+#write.csv(fulldata,"data/Latest_format/hdcpt_p10t_full.csv", row.names = FALSE)
+
+data1 <- fulldata %>%
   pivot_longer(-kappa, values_to = "stoppingT")
 
 props <- data1 %>%
+  filter(kappa<=0.7) %>%
   group_by(kappa) %>%
   reframe(
     tibble::as_tibble_row(get_proportions(stoppingT))
   )
-# props$false_alarm[1]<-props$false_alarm[1]+props$detected[1]
-# props$detected[1]<-0
+props$false_alarm[1]<-props$false_alarm[1]+props$detected[1]
+props$detected[1]<-0
 
 
 props_longer<- props %>%
@@ -441,7 +470,7 @@ ggplot(props_longer,
              linetype = "dashed",
              linewidth = 0.5) +
   scale_x_continuous(
-    breaks = seq(8000, 20000, by = 1000),
+    breaks = seq(0, 1.2, by = 0.1),
     expand = expansion(mult = c(0, 0))
   ) +
   scale_y_continuous(
@@ -463,21 +492,22 @@ ggplot(props_longer,
   theme(
     legend.position = "top",
     legend.title = element_blank(),
-    plot.title = element_text(hjust = 0.5),
-    axis.text.x = element_text(angle=45, vjust=0.5)
+    plot.title = element_text(hjust = 0.5)
+#    axis.text.x = element_text(angle=45, vjust=0.5)
   )
 
 
 # Detection delay
 detected_long <- data1 %>%
-  filter(kappa >=0.4)%>%
-  filter(stoppingT > 300)
+  filter(kappa >=0.5)%>%
+  filter(kappa <=2)%>%
+  filter(stoppingT > cpt)
 
 result <- detected_long %>%
   group_by(kappa) %>%
   summarise(meanT = mean(stoppingT), sdT=sd(stoppingT))
 
-result$meanT<-result$meanT-500
+result$meanT<-result$meanT-cpt
 
 ggplot(result, aes(x = kappa, y = meanT)) +
   geom_point(size = 1.6, colour = "black") +
@@ -490,7 +520,10 @@ ggplot(result, aes(x = kappa, y = meanT)) +
   #               colour = "Regime 3"),
   #           linewidth = 0.9) +
   scale_x_continuous(
-    breaks = seq(8000, 20000, by = 1000))+
+    breaks = seq(0, 5, by = 0.2))+
+  scale_y_continuous(
+    limits=c(0,3000),
+    breaks = seq(0, 3000, by = 500))+
   labs(
     x = expression(kappa),
     y = "Mean detection delay",
@@ -509,6 +542,5 @@ ggplot(result, aes(x = kappa, y = meanT)) +
     panel.grid.minor = element_blank(),
     legend.position = "top",
     legend.key.width = unit(1.5, "cm"),
-    legend.spacing.x = unit(0.6, "cm"),
-    axis.text.x = element_text(angle=45, vjust=0.5)
+    legend.spacing.x = unit(0.6, "cm")
   )
